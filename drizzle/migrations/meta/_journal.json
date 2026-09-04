@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788503138841,
+      "tag": "0000_ustad_core_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788503175603,
+      "tag": "0001_ustad_curriculum_and_book_knowledge",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788503208951,
+      "tag": "0002_gallery_20260902071134",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788503244264,
+      "tag": "0003_crorepati_part1_20260902120000",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788503291003,
+      "tag": "0004_mega_tournament_part2_20260902130000",
+      "breakpoints": true
+    }
+  ]
+}
