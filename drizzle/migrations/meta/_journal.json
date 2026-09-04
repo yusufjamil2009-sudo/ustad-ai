@@ -15,6 +15,13 @@
       "when": 1788503175603,
       "tag": "0001_ustad_curriculum_and_book_knowledge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788503208951,
+      "tag": "0002_gallery_20260902071134",
+      "breakpoints": true
     }
   ]
 }
