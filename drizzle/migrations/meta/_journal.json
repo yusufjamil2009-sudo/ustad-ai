@@ -43,6 +43,13 @@
       "when": 1788570815193,
       "tag": "0005_crorepati_entry_part3",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788570857492,
+      "tag": "0006_trophy_achievements_part4",
+      "breakpoints": true
     }
   ]
 }
