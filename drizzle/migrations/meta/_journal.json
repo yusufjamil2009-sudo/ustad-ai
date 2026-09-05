@@ -36,6 +36,13 @@
       "when": 1788503291003,
       "tag": "0004_mega_tournament_part2_20260902130000",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788570815193,
+      "tag": "0005_crorepati_entry_part3",
+      "breakpoints": true
     }
   ]
 }
