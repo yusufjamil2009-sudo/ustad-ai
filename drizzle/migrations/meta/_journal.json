@@ -57,6 +57,13 @@
       "when": 1788570895524,
       "tag": "0007_certificates_part5",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788570944383,
+      "tag": "0008_master_event_engine_part6",
+      "breakpoints": true
     }
   ]
 }
