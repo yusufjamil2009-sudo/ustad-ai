@@ -391,6 +391,8 @@ export async function getEntryState(token: unknown): Promise<EntryStateView> {
   const open = await currentOccurrence(event);
   const next = open ? null : await nextOccurrence(event);
   const balance = await coinBalance(guestId);
+  const playedToday = open ? await hasPlayedOccurrence(guestId, String(open["id"])) : false;
+
 
   const { data: history } = await sdb()
     .from("crorepati_entries")
