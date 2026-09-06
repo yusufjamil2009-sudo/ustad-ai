@@ -160,6 +160,13 @@ function CrorepatiPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, token]);
 
+  /* ---------- attempt finished → refresh coins + leaderboard ---------- */
+  useEffect(() => {
+    if (!finishedAttempt) return;
+    void refreshEntry();
+    void refreshBoard();
+  }, [finishedAttempt, refreshEntry, refreshBoard]);
+
   /* ---------- 4 Hz UI tick for the countdowns ---------- */
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 250);
