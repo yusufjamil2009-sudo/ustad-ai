@@ -122,6 +122,99 @@ function languageRule(language: Language): string {
 }
 
 /**
+ * Answer verification pass.
+ *
+ * Every freshly generated question is sent back through the AI Router with a
+ * fact-check prompt. The verifier returns, per question, whether the fact is
+ * correct and which option index is truly right. Questions the verifier rejects
+ * are DROPPED (the generation loop then asks for replacements), and questions
+ * where the verifier picks a different option have their `correctIndex`
+ * corrected. If the verification call itself fails, the batch is kept as-is so
+ * a provider hiccup can never block a game.
+ */
+async function verifyAnswers(
+  batch: GeneratedQuestion[],
+  ctx: { guestId: string; language: Language },
+): Promise<GeneratedQuestion[]> {
+  if (!batch.length) return batch;
+
+  const listing = batch
+    .map(
+      (q, i) =>
+        `${i}. ${q.question}\n` +
+        q.options.map((o, oi) => `   ${oi}) ${o}`).join("\n") +
+        `\n   claimed correct index: ${q.correctIndex}`,
+    )
+    .join("\n\n");
+
+  const system =
+    "You are a strict quiz fact-checker. Return STRICT JSON only, no prose, no markdown. " +
+    'Schema: {"checks":[{"index":0,"correctIndex":0,"verdict":"ok|fixed|reject","reason":"short"}]}';
+
+  const user = [
+    "Fact-check each multiple-choice question below.",
+    "For each one decide:",
+    '- "ok": the question is factually correct, self-contained, and the claimed index is the single right option.',
+    '- "fixed": the question is fine but the claimed index is wrong — return the truly correct index.',
+    '- "reject": the fact is wrong, outdated, ambiguous, opinion-based, has multiple correct options, or none of the options is correct.',
+    "Reject anything you are not confident about. Accuracy matters more than keeping questions.",
+    "Return one check object per question, using the same index numbers.",
+    "",
+    listing,
+  ].join("\n");
+
+  try {
+    const available = await usableProviders(ctx.guestId);
+    const decision = route({
+      text: `${user} verification detail`,
+      hasImages: false,
+      preferredLanguage: ctx.language,
+      dataSaver: false,
+    });
+    const candidates = [...selectChatProviders(available, decision), ...coreCandidates()];
+    if (!candidates.length) return batch;
+
+    const res = await runChat({
+      candidates,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      maxTokens: 2500,
+    });
+
+    type Check = { index?: number; correctIndex?: number; verdict?: string };
+    const parsed = parseJsonLoose<{ checks?: Check[] } | Check[]>(res.text);
+    const checks = Array.isArray(parsed) ? parsed : (parsed.checks ?? []);
+    if (!checks.length) return batch;
+
+    const byIndex = new Map<number, Check>();
+    for (const c of checks) {
+      if (typeof c?.index === "number") byIndex.set(Math.floor(c.index), c);
+    }
+
+    const kept: GeneratedQuestion[] = [];
+    batch.forEach((q, i) => {
+      const check = byIndex.get(i);
+      if (!check) return; // unverified → drop, the loop asks for a replacement
+      const verdict = String(check.verdict ?? "").toLowerCase();
+      if (verdict === "reject") return;
+      const fixed =
+        typeof check.correctIndex === "number" &&
+        check.correctIndex >= 0 &&
+        check.correctIndex <= 3
+          ? Math.floor(check.correctIndex)
+          : q.correctIndex;
+      kept.push({ ...q, correctIndex: fixed });
+    });
+    return kept;
+  } catch {
+    return batch;
+  }
+}
+
+
+/**
  * Generate exactly `count` quiz questions in ladder order.
  *
  * This is the ONE reusable quiz-question generator: Part 1 (Crorepati) and
@@ -163,15 +256,23 @@ export async function generateQuizSet(input: {
   let provider = "";
   let model = "";
 
-  for (let round = 0; round < 5 && collected.length < count; round++) {
+  for (let round = 0; round < 7 && collected.length < count; round++) {
     const need = count - collected.length;
     const avoidList = [...input.avoid.slice(-40), ...collected.map((q) => q.question)]
       .slice(-60)
       .map((q) => `- ${q.slice(0, 100)}`)
       .join("\n");
 
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const year = now.getUTCFullYear();
+
     const user = [
       `Create ${need} fresh multiple-choice quiz questions for a ${input.showName ?? "Kon Banega Crorepati"} style quiz show in India.`,
+      `Today's date is ${today}. Treat ${year} as the present year.`,
+      "Use ONLY real, verifiable general-knowledge and current-affairs facts — no invented people, places, awards, records or events.",
+      `About a quarter of the set must be current affairs: recent Indian and world news, sports results, awards, appointments, science and space milestones, economy and government schemes from ${year - 1}–${year}.`,
+      "For current-affairs questions, only use facts you are confident are still accurate; skip anything fast-changing or disputed.",
       `Difficulty ladder for this set: questions get progressively harder. Roughly ${Math.ceil(need * 0.35)} easy, ${Math.ceil(need * 0.35)} medium, rest hard.`,
       `Rotate across these topics so the set feels varied: ${shuffledTopics.slice(0, 8).join(", ")}.`,
       input.klass
@@ -181,6 +282,7 @@ export async function generateQuizSet(input: {
       "Every question must have exactly 4 options and exactly ONE unambiguous correct option.",
       'Include "correctIndex" as the 0-based index of the correct option.',
       'Include a short "hint" that guides thinking WITHOUT naming the answer.',
+      'Include a short "explanation" stating the verifiable fact behind the answer.',
       "Questions must be factually correct, self-contained and non-repetitive.",
       `Randomisation seed ${input.seed}-${round}: do not reuse your usual first picks; surprise the player.`,
       avoidList
@@ -189,6 +291,7 @@ export async function generateQuizSet(input: {
     ]
       .filter(Boolean)
       .join("\n");
+
 
     const available = await usableProviders(input.guestId);
     const decision = route({
@@ -218,8 +321,15 @@ export async function generateQuizSet(input: {
       continue;
     }
     const rows = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
-    collected.push(...clean(rows, seen));
+    const cleaned = clean(rows, seen);
+    // Fact-check pass: wrong or unverifiable answers never reach the player.
+    const verified = await verifyAnswers(cleaned, {
+      guestId: input.guestId,
+      language: input.language,
+    });
+    collected.push(...verified);
   }
+
 
   if (collected.length < count) {
     throw new Error(
