@@ -19,6 +19,7 @@ import {
   Timer,
   Ticket,
   Gift,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,11 +35,15 @@ import {
   crorepatiLifelineFn,
   crorepatiTimeoutFn,
   crorepatiEntryStateFn,
+  crorepatiLeaderboardFn,
 } from "@/lib/crorepati.functions";
 import type { EntryStateView } from "@/lib/crorepati-entry-spec";
+import type { CrorepatiLeaderboardRow } from "@/lib/crorepati-engine.server";
 import {
   CROREPATI_QUESTION_COUNT,
   formatCoins,
+  formatIndianShort,
+  formatRupees,
   type CrorepatiAttemptView,
 } from "@/lib/crorepati-spec";
 import { clockLabel, secondsLeft, useServerClockOffset } from "@/lib/crorepati-clock";
@@ -80,6 +85,7 @@ function CrorepatiPage() {
   const [tick, setTick] = useState(0);
   const [serverNow, setServerNow] = useState<string | null>(null);
   const [entryState, setEntryState] = useState<EntryStateView | null>(null);
+  const [board, setBoard] = useState<CrorepatiLeaderboardRow[]>([]);
   const offsetRef = useServerClockOffset(serverNow);
   const presentedFor = useRef<string>("");
   const timeoutSent = useRef<string>("");
@@ -88,6 +94,8 @@ function CrorepatiPage() {
     setView(next);
     setServerNow(next.timing.serverNow);
   }, []);
+
+  const finishedAttempt = view && view.status !== "active" ? view.attemptId : null;
 
   /** The entry balance is ALWAYS read from the server, never from the browser. */
   const refreshEntry = useCallback(async () => {
@@ -99,6 +107,19 @@ function CrorepatiPage() {
       setEntryState(res);
     } catch {
       setEntryState(null);
+    }
+  }, [token]);
+
+  /** Public leaderboard — always server-ranked, never computed here. */
+  const refreshBoard = useCallback(async () => {
+    if (!token) return;
+    try {
+      const rows = (await crorepatiLeaderboardFn({
+        data: { token, limit: 20 },
+      })) as unknown as CrorepatiLeaderboardRow[];
+      setBoard(rows ?? []);
+    } catch {
+      setBoard([]);
     }
   }, [token]);
 
@@ -117,6 +138,7 @@ function CrorepatiPage() {
         setLadder(res.ladder ?? []);
         setServerNow(res.serverNow);
         void refreshEntry();
+        void refreshBoard();
         if (res.attempt) {
           setView(res.attempt);
           // A refresh mid-question: the server already knows the deadline, so
@@ -233,6 +255,7 @@ function CrorepatiPage() {
     } finally {
       setBusy(false);
       void refreshEntry();
+      void refreshBoard();
     }
   };
 
