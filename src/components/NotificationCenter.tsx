@@ -30,6 +30,7 @@ import {
   type Language,
   type NotificationType,
 } from "@/lib/notification-spec";
+import { useGuest } from "@/lib/ustad-client";
 
 type FeedItem = {
   id: string;
@@ -79,6 +80,9 @@ const UNREAD_POLL_MS = 20000;
 
 export function NotificationCenter() {
   const navigate = useNavigate();
+  // The guest session is the single source of truth for the token. Calling any
+  // notification function before it is ready throws "Invalid guest session".
+  const { token, ready } = useGuest();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<FeedItem[]>([]);
@@ -96,14 +100,16 @@ export function NotificationCenter() {
 
   const refreshUnread = useCallback(async () => {
     try {
-      const r = (await notificationUnreadFn({ data: { token: "" } })) as { unread: number };
+      if (!ready) return;
+      const r = (await notificationUnreadFn({ data: { token } })) as { unread: number };
       setUnread(Number(r?.unread ?? 0));
     } catch {
       /* a badge failure must never break the page */
     }
-  }, []);
+  }, [ready, token]);
 
   useEffect(() => {
+    if (!ready) return;
     void refreshUnread();
     const id = window.setInterval(() => void refreshUnread(), UNREAD_POLL_MS);
     const onFocus = () => void refreshUnread();
@@ -123,10 +129,11 @@ export function NotificationCenter() {
 
   const loadFeed = useCallback(
     async (nextFilter: Filter, nextCursor: string | null, append: boolean) => {
+      if (!ready) return;
       setLoading(true);
       try {
         const r = (await notificationFeedFn({
-          data: { token: "", filter: nextFilter, cursor: nextCursor },
+          data: { token, filter: nextFilter, cursor: nextCursor },
         })) as {
           items: FeedItem[];
           nextCursor: string | null;
@@ -145,12 +152,13 @@ export function NotificationCenter() {
         setLoading(false);
       }
     },
-    [],
+    [ready, token],
   );
 
   const loadUpcoming = useCallback(async () => {
     try {
-      const r = (await upcomingEventsFn({ data: { token: "" } })) as {
+      if (!ready) return;
+      const r = (await upcomingEventsFn({ data: { token } })) as {
         events: UpcomingEvent[];
         language: Language;
       };
@@ -159,13 +167,13 @@ export function NotificationCenter() {
     } catch {
       setEvents([]);
     }
-  }, []);
+  }, [ready, token]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !ready) return;
     void loadFeed(filter, null, false);
     void loadUpcoming();
-  }, [open, filter, loadFeed, loadUpcoming]);
+  }, [open, ready, filter, loadFeed, loadUpcoming]);
 
   /* ---------------- actions ---------------- */
 
@@ -174,7 +182,7 @@ export function NotificationCenter() {
       setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
       setUnread((u) => Math.max(0, u - 1));
       try {
-        const r = (await notificationMarkReadFn({ data: { token: "", id: item.id } })) as {
+        const r = (await notificationMarkReadFn({ data: { token, id: item.id } })) as {
           unread: number;
         };
         setUnread(Number(r?.unread ?? 0));
@@ -192,7 +200,7 @@ export function NotificationCenter() {
     setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setUnread(0);
     try {
-      const r = (await notificationMarkAllReadFn({ data: { token: "" } })) as { unread: number };
+      const r = (await notificationMarkAllReadFn({ data: { token } })) as { unread: number };
       setUnread(Number(r?.unread ?? 0));
     } catch {
       /* optimistic */
