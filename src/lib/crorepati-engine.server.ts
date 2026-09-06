@@ -309,17 +309,46 @@ function answerWindowOpen(attempt: Row): boolean {
   );
 }
 
+/**
+ * How long after a missed deadline the server still treats the expiry as a
+ * genuine timeout. Beyond that the player was clearly not on the page (tab
+ * closed, reload, connection lost), so the question is RE-ARMED instead of the
+ * attempt being destroyed: the player resumes the same game at the same
+ * question and no entry is burnt. A player sitting on the page always times out
+ * normally, because the client reports the expiry the moment it happens.
+ */
+const RESUME_REARM_AFTER_MS = 15_000;
+
 async function enforceTimeout(attempt: Row, event: Row): Promise<Row> {
   if (attempt["status"] !== "active") return attempt;
   const deadline = deadlineOf(attempt);
-  if (deadline && Date.now() > deadline + CROREPATI_LATENCY_GRACE_MS) {
-    return endAttempt(attempt, event, {
-      status: "timeout",
-      wrongAt: Number(attempt["current_question"]),
-    });
+  if (!deadline) return attempt;
+  const late = Date.now() - deadline;
+  if (late <= CROREPATI_LATENCY_GRACE_MS) return attempt;
+
+  if (late > RESUME_REARM_AFTER_MS) {
+    // Absent player → resume the same question on the next presentation.
+    const { data: rearmed } = await sdb()
+      .from("crorepati_attempts")
+      .update({
+        game_state: "QUESTION_ANIMATING",
+        presented_at: null,
+        answer_timer_starts_at: null,
+        deadline_at: null,
+      })
+      .eq("id", attempt["id"])
+      .eq("status", "active")
+      .select()
+      .maybeSingle();
+    return rearmed ?? attempt;
   }
-  return attempt;
+
+  return endAttempt(attempt, event, {
+    status: "timeout",
+    wrongAt: Number(attempt["current_question"]),
+  });
 }
+
 
 async function loadAttempt(guestId: string, attemptId: string): Promise<Row> {
   const { data } = await sdb()
