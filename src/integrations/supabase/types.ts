@@ -375,6 +375,7 @@ export type Database = {
           guest_id: string
           hint_used: boolean
           id: string
+          language: string | null
           meta: Json
           presented_at: string | null
           result: string | null
@@ -398,6 +399,7 @@ export type Database = {
           guest_id: string
           hint_used?: boolean
           id?: string
+          language?: string | null
           meta?: Json
           presented_at?: string | null
           result?: string | null
@@ -421,6 +423,7 @@ export type Database = {
           guest_id?: string
           hint_used?: boolean
           id?: string
+          language?: string | null
           meta?: Json
           presented_at?: string | null
           result?: string | null
@@ -1914,6 +1917,7 @@ export type Database = {
           guest_id: string
           id: string
           idempotency_key: string | null
+          language: string | null
           lifelines_used: Json
           question_count: number
           result: string
@@ -1937,6 +1941,7 @@ export type Database = {
           guest_id: string
           id?: string
           idempotency_key?: string | null
+          language?: string | null
           lifelines_used?: Json
           question_count: number
           result?: string
@@ -1960,6 +1965,7 @@ export type Database = {
           guest_id?: string
           id?: string
           idempotency_key?: string | null
+          language?: string | null
           lifelines_used?: Json
           question_count?: number
           result?: string
@@ -2997,8 +3003,13 @@ export type Database = {
       profiles: {
         Row: {
           age: number | null
+          avatar_mime: string | null
+          avatar_ref: string | null
+          avatar_updated_at: string | null
           board: string | null
+          created_at: string
           education: string | null
+          equipped_frame: string | null
           guest_id: string
           interests: string | null
           klass: string | null
@@ -3009,8 +3020,13 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          avatar_mime?: string | null
+          avatar_ref?: string | null
+          avatar_updated_at?: string | null
           board?: string | null
+          created_at?: string
           education?: string | null
+          equipped_frame?: string | null
           guest_id: string
           interests?: string | null
           klass?: string | null
@@ -3021,8 +3037,13 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          avatar_mime?: string | null
+          avatar_ref?: string | null
+          avatar_updated_at?: string | null
           board?: string | null
+          created_at?: string
           education?: string | null
+          equipped_frame?: string | null
           guest_id?: string
           interests?: string | null
           klass?: string | null
@@ -3032,6 +3053,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_equipped_frame_fk"
+            columns: ["equipped_frame"]
+            isOneToOne: false
+            referencedRelation: "ustad_shop_items"
+            referencedColumns: ["item_id"]
+          },
           {
             foreignKeyName: "profiles_guest_id_fkey"
             columns: ["guest_id"]
@@ -3357,31 +3385,46 @@ export type Database = {
       }
       ustad_coin_ledger: {
         Row: {
+          balance_after: number | null
+          balance_before: number | null
           coins: number
           created_at: string
+          direction: string | null
           guest_id: string
           id: string
           note: string
           ref_id: string
           source: string
+          status: string
+          tx_type: string
         }
         Insert: {
+          balance_after?: number | null
+          balance_before?: number | null
           coins?: number
           created_at?: string
+          direction?: string | null
           guest_id: string
           id?: string
           note?: string
           ref_id: string
           source: string
+          status?: string
+          tx_type?: string
         }
         Update: {
+          balance_after?: number | null
+          balance_before?: number | null
           coins?: number
           created_at?: string
+          direction?: string | null
           guest_id?: string
           id?: string
           note?: string
           ref_id?: string
           source?: string
+          status?: string
+          tx_type?: string
         }
         Relationships: [
           {
@@ -3392,6 +3435,207 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ustad_event_reminder_log: {
+        Row: {
+          event_id: string
+          fired_at: string
+          guest_id: string
+          id: string
+          reminder_kind: string
+        }
+        Insert: {
+          event_id: string
+          fired_at?: string
+          guest_id: string
+          id?: string
+          reminder_kind: string
+        }
+        Update: {
+          event_id?: string
+          fired_at?: string
+          guest_id?: string
+          id?: string
+          reminder_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ustad_event_reminder_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "master_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ustad_event_reminder_log_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ustad_notifications: {
+        Row: {
+          action_path: string
+          category: string
+          created_at: string
+          dedupe_key: string
+          guest_id: string
+          id: string
+          is_read: boolean
+          language: string
+          message: string
+          metadata: Json
+          read_at: string | null
+          reference_id: string
+          reference_type: string
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          action_path?: string
+          category?: string
+          created_at?: string
+          dedupe_key: string
+          guest_id: string
+          id?: string
+          is_read?: boolean
+          language?: string
+          message?: string
+          metadata?: Json
+          read_at?: string | null
+          reference_id?: string
+          reference_type?: string
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          action_path?: string
+          category?: string
+          created_at?: string
+          dedupe_key?: string
+          guest_id?: string
+          id?: string
+          is_read?: boolean
+          language?: string
+          message?: string
+          metadata?: Json
+          read_at?: string | null
+          reference_id?: string
+          reference_type?: string
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ustad_notifications_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ustad_purchases: {
+        Row: {
+          guest_id: string
+          item_id: string
+          ownership_status: string
+          price_paid: number
+          purchase_id: string
+          purchased_at: string
+          transaction_id: string | null
+        }
+        Insert: {
+          guest_id: string
+          item_id: string
+          ownership_status?: string
+          price_paid: number
+          purchase_id?: string
+          purchased_at?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          guest_id?: string
+          item_id?: string
+          ownership_status?: string
+          price_paid?: number
+          purchase_id?: string
+          purchased_at?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ustad_purchases_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ustad_purchases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "ustad_shop_items"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "ustad_purchases_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "ustad_coin_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ustad_shop_items: {
+        Row: {
+          asset_reference: string
+          availability: string
+          category: string
+          created_at: string
+          description: string
+          item_id: string
+          name: string
+          ownership_type: string
+          price_coins: number
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_reference?: string
+          availability?: string
+          category: string
+          created_at?: string
+          description?: string
+          item_id: string
+          name: string
+          ownership_type?: string
+          price_coins: number
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_reference?: string
+          availability?: string
+          category?: string
+          created_at?: string
+          description?: string
+          item_id?: string
+          name?: string
+          ownership_type?: string
+          price_coins?: number
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       ustad_trophies: {
         Row: {
@@ -3463,12 +3707,75 @@ export type Database = {
           },
         ]
       }
+      ustad_wallets: {
+        Row: {
+          created_at: string
+          current_balance: number
+          guest_id: string
+          lifetime_earned: number
+          lifetime_spent: number
+          updated_at: string
+          wallet_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_balance?: number
+          guest_id: string
+          lifetime_earned?: number
+          lifetime_spent?: number
+          updated_at?: string
+          wallet_id?: string
+        }
+        Update: {
+          created_at?: string
+          current_balance?: number
+          guest_id?: string
+          lifetime_earned?: number
+          lifetime_spent?: number
+          updated_at?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ustad_wallets_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: true
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      ustad_coin_apply: {
+        Args: {
+          p_amount: number
+          p_guest_id: string
+          p_note?: string
+          p_ref_id: string
+          p_source: string
+          p_type?: string
+        }
+        Returns: {
+          applied: boolean
+          balance_after: number
+          balance_before: number
+          transaction_id: string
+        }[]
+      }
+      ustad_shop_buy: {
+        Args: { p_guest_id: string; p_item_id: string }
+        Returns: {
+          already_owned: boolean
+          balance_after: number
+          price_paid: number
+          purchase_id: string
+          transaction_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
