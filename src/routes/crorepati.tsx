@@ -482,37 +482,132 @@ function CrorepatiPage() {
             ) : null}
           </div>
 
-          {/* reward ladder */}
-          <aside className="panel w-full shrink-0 p-3 lg:w-64">
-            <p className="mb-2 flex items-center gap-1 text-sm font-semibold">
-              <Trophy className="size-4" /> Reward ladder
-            </p>
-            <ol className="hide-scrollbar max-h-[60vh] space-y-1 overflow-y-auto text-sm">
-              {[...(view?.ladder ?? ladder)]
-                .slice()
-                .reverse()
-                .map((step) => (
-                  <li
-                    key={step.questionNumber}
-                    className={`flex items-center justify-between rounded-lg px-2 py-1 ${
-                      view && view.currentQuestion === step.questionNumber && !over
-                        ? "bg-primary/15 font-semibold"
-                        : view && view.clearedQuestions >= step.questionNumber
-                          ? "text-success"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    <span>Q{step.questionNumber}</span>
-                    <span className="font-mono tabular-nums">{formatCoins(step.coins)}</span>
-                  </li>
-                ))}
-            </ol>
+          {/* reward board + leaderboard */}
+          <aside className="w-full shrink-0 space-y-4 lg:w-72">
+            <RewardBoard
+              ladder={view?.ladder ?? ladder}
+              currentQuestion={view && !over ? view.currentQuestion : 0}
+              cleared={view?.clearedQuestions ?? 0}
+            />
+            <Leaderboard rows={board} />
           </aside>
         </div>
       </div>
     </AppShell>
   );
 }
+
+/**
+ * PRIZE LADDER — 20 levels, Question 1 → Question 20, Indian currency format.
+ * Amounts come from the authoritative server ladder; this only renders them.
+ */
+function RewardBoard({
+  ladder,
+  currentQuestion,
+  cleared,
+}: {
+  ladder: Array<{ questionNumber: number; coins: number }>;
+  currentQuestion: number;
+  cleared: number;
+}) {
+  const steps = [...ladder].sort((a, b) => a.questionNumber - b.questionNumber);
+  const grand = steps[steps.length - 1];
+  const nextStep = steps.find((s) => s.questionNumber === currentQuestion + 1);
+
+  return (
+    <div className="panel p-3">
+      <p className="mb-2 flex items-center gap-1 text-sm font-semibold">
+        <Trophy className="size-4" /> Reward board
+      </p>
+
+      {grand ? (
+        <div className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-center">
+          <p className="text-[10px] tracking-widest text-muted-foreground uppercase">
+            Question {grand.questionNumber} · Grand prize
+          </p>
+          <p className="font-display text-lg font-bold gold-text">
+            {formatIndianShort(grand.coins)}
+          </p>
+          <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {formatRupees(grand.coins)}
+          </p>
+        </div>
+      ) : null}
+
+      <ol className="hide-scrollbar max-h-[52vh] space-y-1 overflow-y-auto text-sm">
+        {[...steps].reverse().map((step) => {
+          const isCurrent = currentQuestion === step.questionNumber;
+          const isDone = cleared >= step.questionNumber;
+          const isGrand = grand && step.questionNumber === grand.questionNumber;
+          return (
+            <li
+              key={step.questionNumber}
+              aria-current={isCurrent ? "step" : undefined}
+              className={`flex items-center justify-between rounded-lg px-2 py-1 transition-colors ${
+                isCurrent
+                  ? "border border-primary/50 bg-primary/15 font-semibold text-foreground"
+                  : isDone
+                    ? "bg-success/10 text-success"
+                    : isGrand
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                {isDone ? "✓" : isCurrent ? "▶" : isGrand ? "🏆" : ""} Q{step.questionNumber}
+              </span>
+              <span className="font-mono tabular-nums">{formatRupees(step.coins)}</span>
+            </li>
+          );
+        })}
+      </ol>
+
+      {currentQuestion > 0 && nextStep ? (
+        <p className="mt-2 rounded-lg bg-muted px-2 py-1 text-xs text-muted-foreground">
+          Next level (Q{nextStep.questionNumber}) is worth{" "}
+          <strong className="text-foreground">{formatRupees(nextStep.coins)}</strong> — answer
+          correctly to unlock it.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Public leaderboard: best verified attempt per player. */
+function Leaderboard({ rows }: { rows: CrorepatiLeaderboardRow[] }) {
+  return (
+    <div className="panel p-3">
+      <p className="mb-2 flex items-center gap-1 text-sm font-semibold">
+        <Crown className="size-4" /> Leaderboard
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No finished games yet. Play today's event to take the first spot.
+        </p>
+      ) : (
+        <ol className="hide-scrollbar max-h-64 space-y-1 overflow-y-auto text-sm">
+          {rows.map((r) => (
+            <li
+              key={`${r.rank}-${r.name}`}
+              className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${
+                r.isYou ? "bg-primary/15 font-semibold" : "text-muted-foreground"
+              }`}
+            >
+              <span className="min-w-0 truncate">
+                {r.rank}. {r.name}
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="mr-2 text-xs">Q{r.cleared}</span>
+                <span className="font-mono text-xs tabular-nums">{formatRupees(r.coins)}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 
 /**
  * Free-entry / paid-entry summary. Everything shown here comes from the
