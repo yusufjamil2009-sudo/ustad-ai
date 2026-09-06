@@ -109,3 +109,27 @@ export function isTerminal(status: CrorepatiStatus): boolean {
 export function formatCoins(coins: number): string {
   return new Intl.NumberFormat("en-IN").format(Math.max(0, Math.round(coins)));
 }
+
+/**
+ * Indian numbering-system rupee label for the prize ladder, e.g. ₹20,000,
+ * ₹1,00,000, ₹1,00,00,000, ₹10,00,00,000.
+ */
+export function formatRupees(amount: number): string {
+  return `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(
+    Math.max(0, Math.round(amount)),
+  )}`;
+}
+
+/** Short crore/lakh label used for the grand-prize presentation. */
+export function formatIndianShort(amount: number): string {
+  const n = Math.max(0, Math.round(amount));
+  if (n >= 10_000_000) {
+    const cr = n / 10_000_000;
+    return `₹${Number.isInteger(cr) ? cr : cr.toFixed(2)} CRORE`;
+  }
+  if (n >= 100_000) {
+    const l = n / 100_000;
+    return `₹${Number.isInteger(l) ? l : l.toFixed(2)} LAKH`;
+  }
+  return formatRupees(n);
+}

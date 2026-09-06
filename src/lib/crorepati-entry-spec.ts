@@ -69,6 +69,8 @@ export type EntryStateView = {
   coinBalance: number;
   /** True while a Crorepati event occurrence is currently open. */
   eventOpen: boolean;
+  /** ONE PLAY PER EVENT DAY: true once this event day's game has been played. */
+  playedCurrentOccurrence: boolean;
   currentOccurrenceId: string | null;
   opensAt: string | null;
   closesAt: string | null;
