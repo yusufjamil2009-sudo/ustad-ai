@@ -472,6 +472,13 @@ export async function grantEntry(input: {
   if (!occurrence)
     throw new Error("Kon Banega Crorepati is not open right now. Come back at the next event.");
 
+  // ONE PLAY PER EVENT DAY: an already played (consumed) entry for this
+  // occurrence blocks a second attempt until the next Crorepati day.
+  if (await hasPlayedOccurrence(guestId, String(occurrence["id"])))
+    throw new Error(ALREADY_PLAYED_REASON);
+
+
+
   const balance = await coinBalance(guestId);
   const free = Number(state["free_entries"] ?? 0);
   const verdict = evaluateEligibility({
