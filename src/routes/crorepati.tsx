@@ -669,6 +669,20 @@ function EntryPanel({ entry }: { entry: EntryStateView | null }) {
         </span>
       </div>
       <p className="text-xs text-muted-foreground">{entry.eligibility.reason}</p>
+      {entry.opensAt || entry.closesAt ? (
+        <p className="text-xs text-muted-foreground">
+          {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
+          {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
+            "en-IN",
+            { weekday: "short", hour: "numeric", minute: "2-digit", hour12: true },
+          )}
+        </p>
+      ) : null}
+      {entry.playedCurrentOccurrence ? (
+        <p className="text-xs font-semibold text-amber-500">
+          Today's game is done — one game per event day.
+        </p>
+      ) : null}
       {entry.freeEntries === 0 && entry.eligibility.nextEntryType === "paid_coins" ? (
         <p className="text-xs text-muted-foreground">
           Miss {entry.missedThreshold} Crorepati events in a row and your {entry.maxFreeEntries}{" "}
@@ -726,6 +740,11 @@ function ResultPanel({
             Your first {entry?.maxFreeEntries ?? 3} attempts are free. Opening an event never costs
             an entry.
           </li>
+          <li>
+            Event days: Sunday, Tuesday and Friday — open 3:00 AM to 11:00 PM, and exactly one game
+            per event day.
+          </li>
+          <li>Prize board runs from ₹20,000 at Q1 up to ₹10 crore at Q20.</li>
         </ul>
       )}
       <Button
@@ -742,6 +761,20 @@ function ResultPanel({
       </Button>
       {entry && !entry.eligibility.canStart ? (
         <p className="text-xs text-muted-foreground">{entry.eligibility.reason}</p>
+      {entry.opensAt || entry.closesAt ? (
+        <p className="text-xs text-muted-foreground">
+          {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
+          {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
+            "en-IN",
+            { weekday: "short", hour: "numeric", minute: "2-digit", hour12: true },
+          )}
+        </p>
+      ) : null}
+      {entry.playedCurrentOccurrence ? (
+        <p className="text-xs font-semibold text-amber-500">
+          Today's game is done — one game per event day.
+        </p>
+      ) : null}
       ) : null}
     </div>
   );
