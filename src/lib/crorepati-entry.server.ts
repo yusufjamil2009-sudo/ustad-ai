@@ -415,12 +415,21 @@ export async function getEntryState(token: unknown): Promise<EntryStateView> {
     currentOccurrenceId: open ? String(open["id"]) : null,
     opensAt: open ? String(open["opened_at"]) : next ? String(next["opened_at"]) : null,
     closesAt: open ? String(open["closed_at"]) : next ? String(next["closed_at"]) : null,
-    eligibility: evaluateEligibility({
-      freeEntries: Number(state["free_entries"] ?? 0),
-      coinBalance: balance,
-      eventOpen: Boolean(open),
-      config: cfg,
-    }),
+    playedCurrentOccurrence: playedToday,
+    eligibility: playedToday
+      ? {
+          canStart: false,
+          nextEntryType: null,
+          reason: ALREADY_PLAYED_REASON,
+          cost: 0,
+        }
+      : evaluateEligibility({
+          freeEntries: Number(state["free_entries"] ?? 0),
+          coinBalance: balance,
+          eventOpen: Boolean(open),
+          config: cfg,
+        }),
+
     config: cfg,
     history: (history ?? []).map((r: Row) => ({
       id: String(r["id"]),
