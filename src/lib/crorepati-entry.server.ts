@@ -198,6 +198,24 @@ async function nextOccurrence(event: Row): Promise<Row | null> {
   return (data ?? [])[0] ?? null;
 }
 
+/** Wording shown everywhere the one-play-per-event-day rule applies. */
+const ALREADY_PLAYED_REASON =
+  "You have already played today's Kon Banega Crorepati. Every event day allows exactly one game — come back on the next event day.";
+
+/** Has this guest already used up an attempt in this occurrence? */
+async function hasPlayedOccurrence(guestId: string, occurrenceId: string): Promise<boolean> {
+  const { data } = await sdb()
+    .from("crorepati_entries")
+    .select("id")
+    .eq("guest_id", guestId)
+    .eq("occurrence_id", occurrenceId)
+    .eq("status", "consumed")
+    .limit(1);
+  return Boolean((data ?? []).length);
+}
+
+
+
 /* ------------------------------------------------------------------ */
 /* Entry state                                                         */
 /* ------------------------------------------------------------------ */
