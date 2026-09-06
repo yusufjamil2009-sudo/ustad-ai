@@ -761,7 +761,8 @@ function ResultPanel({
       </Button>
       {entry && !entry.eligibility.canStart ? (
         <p className="text-xs text-muted-foreground">{entry.eligibility.reason}</p>
-      {entry.opensAt || entry.closesAt ? (
+      ) : null}
+      {entry && (entry.opensAt || entry.closesAt) ? (
         <p className="text-xs text-muted-foreground">
           {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
           {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
@@ -770,12 +771,12 @@ function ResultPanel({
           )}
         </p>
       ) : null}
-      {entry.playedCurrentOccurrence ? (
+      {entry?.playedCurrentOccurrence ? (
         <p className="text-xs font-semibold text-amber-500">
           Today's game is done — one game per event day.
         </p>
       ) : null}
-      ) : null}
+
     </div>
   );
 }
