@@ -263,8 +263,16 @@ export async function generateQuizSet(input: {
       .map((q) => `- ${q.slice(0, 100)}`)
       .join("\n");
 
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const year = now.getUTCFullYear();
+
     const user = [
       `Create ${need} fresh multiple-choice quiz questions for a ${input.showName ?? "Kon Banega Crorepati"} style quiz show in India.`,
+      `Today's date is ${today}. Treat ${year} as the present year.`,
+      "Use ONLY real, verifiable general-knowledge and current-affairs facts — no invented people, places, awards, records or events.",
+      `About a quarter of the set must be current affairs: recent Indian and world news, sports results, awards, appointments, science and space milestones, economy and government schemes from ${year - 1}–${year}.`,
+      "For current-affairs questions, only use facts you are confident are still accurate; skip anything fast-changing or disputed.",
       `Difficulty ladder for this set: questions get progressively harder. Roughly ${Math.ceil(need * 0.35)} easy, ${Math.ceil(need * 0.35)} medium, rest hard.`,
       `Rotate across these topics so the set feels varied: ${shuffledTopics.slice(0, 8).join(", ")}.`,
       input.klass
@@ -274,6 +282,7 @@ export async function generateQuizSet(input: {
       "Every question must have exactly 4 options and exactly ONE unambiguous correct option.",
       'Include "correctIndex" as the 0-based index of the correct option.',
       'Include a short "hint" that guides thinking WITHOUT naming the answer.',
+      'Include a short "explanation" stating the verifiable fact behind the answer.',
       "Questions must be factually correct, self-contained and non-repetitive.",
       `Randomisation seed ${input.seed}-${round}: do not reuse your usual first picks; surprise the player.`,
       avoidList
@@ -282,6 +291,7 @@ export async function generateQuizSet(input: {
     ]
       .filter(Boolean)
       .join("\n");
+
 
     const available = await usableProviders(input.guestId);
     const decision = route({
