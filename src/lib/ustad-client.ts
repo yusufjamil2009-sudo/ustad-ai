@@ -34,17 +34,16 @@ export function readToken(): string {
   return window.localStorage.getItem(TOKEN_KEY) ?? "";
 }
 
-function writeToken(token: string, guestId: string, cookieSet?: boolean) {
+function writeToken(token: string, guestId: string, _cookieSet?: boolean) {
   if (typeof window === "undefined") return;
-  // Always keep guest id for UI. Token stays in memory; if the server set an
-  // HttpOnly cookie, wipe the legacy localStorage copy so XSS cannot steal it.
+  // Always persist BOTH the guest id and the token in localStorage. The
+  // HttpOnly cookie is a bonus layer, but browsers can silently drop it
+  // (secure cookie over http, third-party iframe cookie blocking). If we
+  // wiped localStorage whenever the server claims cookieSet=true, the next
+  // refresh would have no token at all and a brand-new guest would be
+  // minted — wiping chats, coins, shop items and game progress.
   window.localStorage.setItem(ID_KEY, guestId);
-  if (cookieSet) {
-    window.localStorage.removeItem(TOKEN_KEY);
-    window.sessionStorage.removeItem(TOKEN_KEY);
-  } else {
-    window.localStorage.setItem(TOKEN_KEY, token);
-  }
+  window.localStorage.setItem(TOKEN_KEY, token);
 }
 
 function clearToken() {
