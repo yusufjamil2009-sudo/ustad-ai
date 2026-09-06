@@ -885,3 +885,85 @@ export async function crorepatiProfileStats(token: unknown) {
     })),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Leaderboard (public, verified attempts only)                        */
+/* ------------------------------------------------------------------ */
+
+export type CrorepatiLeaderboardRow = {
+  rank: number;
+  name: string;
+  cleared: number;
+  coins: number;
+  result: string;
+  endedAt: string | null;
+  isYou: boolean;
+};
+
+/**
+ * Top verified attempts for the Crorepati event. Ranked by questions cleared
+ * first, then by the reward, then by who got there earlier. Only finished
+ * attempts count, and only a display name is ever exposed.
+ */
+export async function crorepatiLeaderboard(token: unknown, limit = 20) {
+  const guestId = await requireGuest(token);
+  const { data } = await sdb()
+    .from("crorepati_attempts")
+    .select("guest_id,cleared_questions,coin_reward,result,status,ended_at")
+    .neq("status", "active")
+    .order("cleared_questions", { ascending: false })
+    .order("coin_reward", { ascending: false })
+    .order("ended_at", { ascending: true })
+    .limit(300);
+
+  const rows: Row[] = data ?? [];
+  // One best attempt per player.
+  const best = new Map<string, Row>();
+  for (const r of rows) {
+    const key = String(r["guest_id"]);
+    const prev = best.get(key);
+    if (
+      !prev ||
+      Number(r["cleared_questions"] ?? 0) > Number(prev["cleared_questions"] ?? 0) ||
+      (Number(r["cleared_questions"] ?? 0) === Number(prev["cleared_questions"] ?? 0) &&
+        Number(r["coin_reward"] ?? 0) > Number(prev["coin_reward"] ?? 0))
+    ) {
+      best.set(key, r);
+    }
+  }
+
+  const ordered = [...best.values()]
+    .sort(
+      (a, b) =>
+        Number(b["cleared_questions"] ?? 0) - Number(a["cleared_questions"] ?? 0) ||
+        Number(b["coin_reward"] ?? 0) - Number(a["coin_reward"] ?? 0) ||
+        Date.parse(String(a["ended_at"] ?? 0)) - Date.parse(String(b["ended_at"] ?? 0)),
+    )
+    .slice(0, Math.max(1, Math.min(limit, 50)));
+
+  const ids = ordered.map((r) => String(r["guest_id"]));
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data: profiles } = await sdb()
+      .from("profiles")
+      .select("guest_id,name")
+      .in("guest_id", ids);
+    for (const p of (profiles ?? []) as Row[]) {
+      const n = String(p["name"] ?? "").trim();
+      if (n) names.set(String(p["guest_id"]), n);
+    }
+  }
+
+  return ordered.map<CrorepatiLeaderboardRow>((r, i) => {
+    const gid = String(r["guest_id"]);
+    return {
+      rank: i + 1,
+      name: gid === guestId ? "You" : (names.get(gid) ?? `Player ${gid.slice(0, 4).toUpperCase()}`),
+      cleared: Number(r["cleared_questions"] ?? 0),
+      coins: Number(r["coin_reward"] ?? 0),
+      result: String(r["result"] ?? r["status"] ?? ""),
+      endedAt: (r["ended_at"] as string) ?? null,
+      isYou: gid === guestId,
+    };
+  });
+}

@@ -77,3 +77,9 @@ export const crorepatiTimeoutFn = createServerFn({ method: "POST" })
 export const crorepatiProfileStatsFn = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => d)
   .handler(async ({ data: d }) => engine.crorepatiProfileStats(d.token));
+
+/* ---------------- Leaderboard ---------------- */
+
+export const crorepatiLeaderboardFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { token: string; limit?: number }) => d)
+  .handler(async ({ data: d }) => engine.crorepatiLeaderboard(d.token, d.limit ?? 20));
