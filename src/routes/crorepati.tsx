@@ -674,8 +674,15 @@ function EntryPanel({ entry }: { entry: EntryStateView | null }) {
           {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
           {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
             "en-IN",
-            { weekday: "short", hour: "numeric", minute: "2-digit", hour12: true },
-          )}
+            {
+              weekday: "short",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+              timeZone: "Asia/Kolkata",
+            },
+          )}{" "}
+          IST
         </p>
       ) : null}
       {entry.playedCurrentOccurrence ? (
@@ -767,8 +774,15 @@ function ResultPanel({
           {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
           {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
             "en-IN",
-            { weekday: "short", hour: "numeric", minute: "2-digit", hour12: true },
-          )}
+            {
+              weekday: "short",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+              timeZone: "Asia/Kolkata",
+            },
+          )}{" "}
+          IST
         </p>
       ) : null}
       {entry?.playedCurrentOccurrence ? (
