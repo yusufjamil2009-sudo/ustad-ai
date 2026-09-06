@@ -64,6 +64,13 @@
       "when": 1788570944383,
       "tag": "0008_master_event_engine_part6",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788659198547,
+      "tag": "0009_coin_economy_shop_part7",
+      "breakpoints": true
     }
   ]
 }
