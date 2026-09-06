@@ -78,6 +78,13 @@
       "when": 1788659218893,
       "tag": "0010_profile_avatar_part8",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788659257263,
+      "tag": "0011_notification_center_part9",
+      "breakpoints": true
     }
   ]
 }
