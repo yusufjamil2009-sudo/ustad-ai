@@ -321,8 +321,15 @@ export async function generateQuizSet(input: {
       continue;
     }
     const rows = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
-    collected.push(...clean(rows, seen));
+    const cleaned = clean(rows, seen);
+    // Fact-check pass: wrong or unverifiable answers never reach the player.
+    const verified = await verifyAnswers(cleaned, {
+      guestId: input.guestId,
+      language: input.language,
+    });
+    collected.push(...verified);
   }
+
 
   if (collected.length < count) {
     throw new Error(
