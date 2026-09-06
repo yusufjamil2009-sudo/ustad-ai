@@ -198,6 +198,24 @@ async function nextOccurrence(event: Row): Promise<Row | null> {
   return (data ?? [])[0] ?? null;
 }
 
+/** Wording shown everywhere the one-play-per-event-day rule applies. */
+const ALREADY_PLAYED_REASON =
+  "You have already played today's Kon Banega Crorepati. Every event day allows exactly one game — come back on the next event day.";
+
+/** Has this guest already used up an attempt in this occurrence? */
+async function hasPlayedOccurrence(guestId: string, occurrenceId: string): Promise<boolean> {
+  const { data } = await sdb()
+    .from("crorepati_entries")
+    .select("id")
+    .eq("guest_id", guestId)
+    .eq("occurrence_id", occurrenceId)
+    .eq("status", "consumed")
+    .limit(1);
+  return Boolean((data ?? []).length);
+}
+
+
+
 /* ------------------------------------------------------------------ */
 /* Entry state                                                         */
 /* ------------------------------------------------------------------ */
@@ -373,6 +391,8 @@ export async function getEntryState(token: unknown): Promise<EntryStateView> {
   const open = await currentOccurrence(event);
   const next = open ? null : await nextOccurrence(event);
   const balance = await coinBalance(guestId);
+  const playedToday = open ? await hasPlayedOccurrence(guestId, String(open["id"])) : false;
+
 
   const { data: history } = await sdb()
     .from("crorepati_entries")
@@ -397,12 +417,21 @@ export async function getEntryState(token: unknown): Promise<EntryStateView> {
     currentOccurrenceId: open ? String(open["id"]) : null,
     opensAt: open ? String(open["opened_at"]) : next ? String(next["opened_at"]) : null,
     closesAt: open ? String(open["closed_at"]) : next ? String(next["closed_at"]) : null,
-    eligibility: evaluateEligibility({
-      freeEntries: Number(state["free_entries"] ?? 0),
-      coinBalance: balance,
-      eventOpen: Boolean(open),
-      config: cfg,
-    }),
+    playedCurrentOccurrence: playedToday,
+    eligibility: playedToday
+      ? {
+          canStart: false,
+          nextEntryType: null,
+          reason: ALREADY_PLAYED_REASON,
+          cost: 0,
+        }
+      : evaluateEligibility({
+          freeEntries: Number(state["free_entries"] ?? 0),
+          coinBalance: balance,
+          eventOpen: Boolean(open),
+          config: cfg,
+        }),
+
     config: cfg,
     history: (history ?? []).map((r: Row) => ({
       id: String(r["id"]),
@@ -471,6 +500,13 @@ export async function grantEntry(input: {
   const occurrence = await currentOccurrence(event);
   if (!occurrence)
     throw new Error("Kon Banega Crorepati is not open right now. Come back at the next event.");
+
+  // ONE PLAY PER EVENT DAY: an already played (consumed) entry for this
+  // occurrence blocks a second attempt until the next Crorepati day.
+  if (await hasPlayedOccurrence(guestId, String(occurrence["id"])))
+    throw new Error(ALREADY_PLAYED_REASON);
+
+
 
   const balance = await coinBalance(guestId);
   const free = Number(state["free_entries"] ?? 0);

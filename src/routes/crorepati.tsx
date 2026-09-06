@@ -19,6 +19,7 @@ import {
   Timer,
   Ticket,
   Gift,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,11 +35,15 @@ import {
   crorepatiLifelineFn,
   crorepatiTimeoutFn,
   crorepatiEntryStateFn,
+  crorepatiLeaderboardFn,
 } from "@/lib/crorepati.functions";
 import type { EntryStateView } from "@/lib/crorepati-entry-spec";
+import type { CrorepatiLeaderboardRow } from "@/lib/crorepati-engine.server";
 import {
   CROREPATI_QUESTION_COUNT,
   formatCoins,
+  formatIndianShort,
+  formatRupees,
   type CrorepatiAttemptView,
 } from "@/lib/crorepati-spec";
 import { clockLabel, secondsLeft, useServerClockOffset } from "@/lib/crorepati-clock";
@@ -80,6 +85,7 @@ function CrorepatiPage() {
   const [tick, setTick] = useState(0);
   const [serverNow, setServerNow] = useState<string | null>(null);
   const [entryState, setEntryState] = useState<EntryStateView | null>(null);
+  const [board, setBoard] = useState<CrorepatiLeaderboardRow[]>([]);
   const offsetRef = useServerClockOffset(serverNow);
   const presentedFor = useRef<string>("");
   const timeoutSent = useRef<string>("");
@@ -88,6 +94,8 @@ function CrorepatiPage() {
     setView(next);
     setServerNow(next.timing.serverNow);
   }, []);
+
+  const finishedAttempt = view && view.status !== "active" ? view.attemptId : null;
 
   /** The entry balance is ALWAYS read from the server, never from the browser. */
   const refreshEntry = useCallback(async () => {
@@ -99,6 +107,19 @@ function CrorepatiPage() {
       setEntryState(res);
     } catch {
       setEntryState(null);
+    }
+  }, [token]);
+
+  /** Public leaderboard — always server-ranked, never computed here. */
+  const refreshBoard = useCallback(async () => {
+    if (!token) return;
+    try {
+      const rows = (await crorepatiLeaderboardFn({
+        data: { token, limit: 20 },
+      })) as unknown as CrorepatiLeaderboardRow[];
+      setBoard(rows ?? []);
+    } catch {
+      setBoard([]);
     }
   }, [token]);
 
@@ -117,6 +138,7 @@ function CrorepatiPage() {
         setLadder(res.ladder ?? []);
         setServerNow(res.serverNow);
         void refreshEntry();
+        void refreshBoard();
         if (res.attempt) {
           setView(res.attempt);
           // A refresh mid-question: the server already knows the deadline, so
@@ -137,6 +159,13 @@ function CrorepatiPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, token]);
+
+  /* ---------- attempt finished → refresh coins + leaderboard ---------- */
+  useEffect(() => {
+    if (!finishedAttempt) return;
+    void refreshEntry();
+    void refreshBoard();
+  }, [finishedAttempt, refreshEntry, refreshBoard]);
 
   /* ---------- 4 Hz UI tick for the countdowns ---------- */
   useEffect(() => {
@@ -233,6 +262,7 @@ function CrorepatiPage() {
     } finally {
       setBusy(false);
       void refreshEntry();
+      void refreshBoard();
     }
   };
 
@@ -482,37 +512,132 @@ function CrorepatiPage() {
             ) : null}
           </div>
 
-          {/* reward ladder */}
-          <aside className="panel w-full shrink-0 p-3 lg:w-64">
-            <p className="mb-2 flex items-center gap-1 text-sm font-semibold">
-              <Trophy className="size-4" /> Reward ladder
-            </p>
-            <ol className="hide-scrollbar max-h-[60vh] space-y-1 overflow-y-auto text-sm">
-              {[...(view?.ladder ?? ladder)]
-                .slice()
-                .reverse()
-                .map((step) => (
-                  <li
-                    key={step.questionNumber}
-                    className={`flex items-center justify-between rounded-lg px-2 py-1 ${
-                      view && view.currentQuestion === step.questionNumber && !over
-                        ? "bg-primary/15 font-semibold"
-                        : view && view.clearedQuestions >= step.questionNumber
-                          ? "text-success"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    <span>Q{step.questionNumber}</span>
-                    <span className="font-mono tabular-nums">{formatCoins(step.coins)}</span>
-                  </li>
-                ))}
-            </ol>
+          {/* reward board + leaderboard */}
+          <aside className="w-full shrink-0 space-y-4 lg:w-72">
+            <RewardBoard
+              ladder={view?.ladder ?? ladder}
+              currentQuestion={view && !over ? view.currentQuestion : 0}
+              cleared={view?.clearedQuestions ?? 0}
+            />
+            <Leaderboard rows={board} />
           </aside>
         </div>
       </div>
     </AppShell>
   );
 }
+
+/**
+ * PRIZE LADDER — 20 levels, Question 1 → Question 20, Indian currency format.
+ * Amounts come from the authoritative server ladder; this only renders them.
+ */
+function RewardBoard({
+  ladder,
+  currentQuestion,
+  cleared,
+}: {
+  ladder: Array<{ questionNumber: number; coins: number }>;
+  currentQuestion: number;
+  cleared: number;
+}) {
+  const steps = [...ladder].sort((a, b) => a.questionNumber - b.questionNumber);
+  const grand = steps[steps.length - 1];
+  const nextStep = steps.find((s) => s.questionNumber === currentQuestion + 1);
+
+  return (
+    <div className="panel p-3">
+      <p className="mb-2 flex items-center gap-1 text-sm font-semibold">
+        <Trophy className="size-4" /> Reward board
+      </p>
+
+      {grand ? (
+        <div className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-center">
+          <p className="text-[10px] tracking-widest text-muted-foreground uppercase">
+            Question {grand.questionNumber} · Grand prize
+          </p>
+          <p className="font-display text-lg font-bold gold-text">
+            {formatIndianShort(grand.coins)}
+          </p>
+          <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {formatRupees(grand.coins)}
+          </p>
+        </div>
+      ) : null}
+
+      <ol className="hide-scrollbar max-h-[52vh] space-y-1 overflow-y-auto text-sm">
+        {[...steps].reverse().map((step) => {
+          const isCurrent = currentQuestion === step.questionNumber;
+          const isDone = cleared >= step.questionNumber;
+          const isGrand = grand && step.questionNumber === grand.questionNumber;
+          return (
+            <li
+              key={step.questionNumber}
+              aria-current={isCurrent ? "step" : undefined}
+              className={`flex items-center justify-between rounded-lg px-2 py-1 transition-colors ${
+                isCurrent
+                  ? "border border-primary/50 bg-primary/15 font-semibold text-foreground"
+                  : isDone
+                    ? "bg-success/10 text-success"
+                    : isGrand
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                {isDone ? "✓" : isCurrent ? "▶" : isGrand ? "🏆" : ""} Q{step.questionNumber}
+              </span>
+              <span className="font-mono tabular-nums">{formatRupees(step.coins)}</span>
+            </li>
+          );
+        })}
+      </ol>
+
+      {currentQuestion > 0 && nextStep ? (
+        <p className="mt-2 rounded-lg bg-muted px-2 py-1 text-xs text-muted-foreground">
+          Next level (Q{nextStep.questionNumber}) is worth{" "}
+          <strong className="text-foreground">{formatRupees(nextStep.coins)}</strong> — answer
+          correctly to unlock it.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Public leaderboard: best verified attempt per player. */
+function Leaderboard({ rows }: { rows: CrorepatiLeaderboardRow[] }) {
+  return (
+    <div className="panel p-3">
+      <p className="mb-2 flex items-center gap-1 text-sm font-semibold">
+        <Crown className="size-4" /> Leaderboard
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No finished games yet. Play today's event to take the first spot.
+        </p>
+      ) : (
+        <ol className="hide-scrollbar max-h-64 space-y-1 overflow-y-auto text-sm">
+          {rows.map((r) => (
+            <li
+              key={`${r.rank}-${r.name}`}
+              className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${
+                r.isYou ? "bg-primary/15 font-semibold" : "text-muted-foreground"
+              }`}
+            >
+              <span className="min-w-0 truncate">
+                {r.rank}. {r.name}
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="mr-2 text-xs">Q{r.cleared}</span>
+                <span className="font-mono text-xs tabular-nums">{formatRupees(r.coins)}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 
 /**
  * Free-entry / paid-entry summary. Everything shown here comes from the
@@ -544,6 +669,27 @@ function EntryPanel({ entry }: { entry: EntryStateView | null }) {
         </span>
       </div>
       <p className="text-xs text-muted-foreground">{entry.eligibility.reason}</p>
+      {entry.opensAt || entry.closesAt ? (
+        <p className="text-xs text-muted-foreground">
+          {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
+          {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
+            "en-IN",
+            {
+              weekday: "short",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+              timeZone: "Asia/Kolkata",
+            },
+          )}{" "}
+          IST
+        </p>
+      ) : null}
+      {entry.playedCurrentOccurrence ? (
+        <p className="text-xs font-semibold text-amber-500">
+          Today's game is done — one game per event day.
+        </p>
+      ) : null}
       {entry.freeEntries === 0 && entry.eligibility.nextEntryType === "paid_coins" ? (
         <p className="text-xs text-muted-foreground">
           Miss {entry.missedThreshold} Crorepati events in a row and your {entry.maxFreeEntries}{" "}
@@ -601,6 +747,11 @@ function ResultPanel({
             Your first {entry?.maxFreeEntries ?? 3} attempts are free. Opening an event never costs
             an entry.
           </li>
+          <li>
+            Event days: Sunday, Tuesday and Friday — open 3:00 AM to 11:00 PM, and exactly one game
+            per event day.
+          </li>
+          <li>Prize board runs from ₹20,000 at Q1 up to ₹10 crore at Q20.</li>
         </ul>
       )}
       <Button
@@ -618,6 +769,28 @@ function ResultPanel({
       {entry && !entry.eligibility.canStart ? (
         <p className="text-xs text-muted-foreground">{entry.eligibility.reason}</p>
       ) : null}
+      {entry && (entry.opensAt || entry.closesAt) ? (
+        <p className="text-xs text-muted-foreground">
+          {entry.eventOpen ? "Today's event closes" : "Next event opens"}:{" "}
+          {new Date((entry.eventOpen ? entry.closesAt : entry.opensAt) ?? "").toLocaleString(
+            "en-IN",
+            {
+              weekday: "short",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+              timeZone: "Asia/Kolkata",
+            },
+          )}{" "}
+          IST
+        </p>
+      ) : null}
+      {entry?.playedCurrentOccurrence ? (
+        <p className="text-xs font-semibold text-amber-500">
+          Today's game is done — one game per event day.
+        </p>
+      ) : null}
+
     </div>
   );
 }
