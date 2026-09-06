@@ -256,7 +256,7 @@ export async function generateQuizSet(input: {
   let provider = "";
   let model = "";
 
-  for (let round = 0; round < 5 && collected.length < count; round++) {
+  for (let round = 0; round < 7 && collected.length < count; round++) {
     const need = count - collected.length;
     const avoidList = [...input.avoid.slice(-40), ...collected.map((q) => q.question)]
       .slice(-60)
