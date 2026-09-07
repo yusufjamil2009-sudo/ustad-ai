@@ -22,6 +22,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StudyRouteImport } from './routes/study'
 import { Route as ExamsIndexRouteImport } from './routes/exams.index'
 import { Route as ExamsExamIdRouteImport } from './routes/exams.$examId'
+import { Route as ApiPublicEventAutopilotRouteImport } from './routes/api/public/event-autopilot'
 import { Route as ApiPublicExamSchedulerRouteImport } from './routes/api/public/exam-scheduler'
 import { Route as ApiPublicNotificationSchedulerRouteImport } from './routes/api/public/notification-scheduler'
 import { Route as GalleryShareTokenRouteImport } from './routes/gallery.share.$token'
@@ -92,6 +93,11 @@ const ExamsExamIdRoute = ExamsExamIdRouteImport.update({
   path: '/exams/$examId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicEventAutopilotRoute = ApiPublicEventAutopilotRouteImport.update({
+  id: '/api/public/event-autopilot',
+  path: '/api/public/event-autopilot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicExamSchedulerRoute = ApiPublicExamSchedulerRouteImport.update({
   id: '/api/public/exam-scheduler',
   path: '/api/public/exam-scheduler',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/study': typeof StudyRoute
   '/exams/$examId': typeof ExamsExamIdRoute
   '/exams/': typeof ExamsIndexRoute
+  '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
   '/api/public/notification-scheduler': typeof ApiPublicNotificationSchedulerRoute
   '/gallery/share/$token': typeof GalleryShareTokenRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/study': typeof StudyRoute
   '/exams/$examId': typeof ExamsExamIdRoute
   '/exams': typeof ExamsIndexRoute
+  '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
   '/api/public/notification-scheduler': typeof ApiPublicNotificationSchedulerRoute
   '/gallery/share/$token': typeof GalleryShareTokenRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/study': typeof StudyRoute
   '/exams/$examId': typeof ExamsExamIdRoute
   '/exams/': typeof ExamsIndexRoute
+  '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
   '/api/public/notification-scheduler': typeof ApiPublicNotificationSchedulerRoute
   '/gallery/share/$token': typeof GalleryShareTokenRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/study'
     | '/exams/$examId'
     | '/exams/'
+    | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
     | '/api/public/notification-scheduler'
     | '/gallery/share/$token'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/study'
     | '/exams/$examId'
     | '/exams'
+    | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
     | '/api/public/notification-scheduler'
     | '/gallery/share/$token'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/study'
     | '/exams/$examId'
     | '/exams/'
+    | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
     | '/api/public/notification-scheduler'
     | '/gallery/share/$token'
@@ -246,6 +258,7 @@ export interface RootRouteChildren {
   StudyRoute: typeof StudyRoute
   ExamsExamIdRoute: typeof ExamsExamIdRoute
   ExamsIndexRoute: typeof ExamsIndexRoute
+  ApiPublicEventAutopilotRoute: typeof ApiPublicEventAutopilotRoute
   ApiPublicExamSchedulerRoute: typeof ApiPublicExamSchedulerRoute
   ApiPublicNotificationSchedulerRoute: typeof ApiPublicNotificationSchedulerRoute
   GalleryShareTokenRoute: typeof GalleryShareTokenRoute
@@ -345,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExamsExamIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/event-autopilot': {
+      id: '/api/public/event-autopilot'
+      path: '/api/public/event-autopilot'
+      fullPath: '/api/public/event-autopilot'
+      preLoaderRoute: typeof ApiPublicEventAutopilotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/exam-scheduler': {
       id: '/api/public/exam-scheduler'
       path: '/api/public/exam-scheduler'
@@ -390,6 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudyRoute: StudyRoute,
   ExamsExamIdRoute: ExamsExamIdRoute,
   ExamsIndexRoute: ExamsIndexRoute,
+  ApiPublicEventAutopilotRoute: ApiPublicEventAutopilotRoute,
   ApiPublicExamSchedulerRoute: ApiPublicExamSchedulerRoute,
   ApiPublicNotificationSchedulerRoute: ApiPublicNotificationSchedulerRoute,
   GalleryShareTokenRoute: GalleryShareTokenRoute,
