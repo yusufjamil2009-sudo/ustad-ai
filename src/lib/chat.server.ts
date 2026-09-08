@@ -195,6 +195,12 @@ export async function sendMessage(input: {
   /* master event participation — verified results only, never guessed */
   const eventFacts = await masterEventContext(guestId).catch(() => "");
 
+  /* weekly Mystery + GOD MASTER tournaments — verified attempts only */
+  const tournamentFacts = await (await import("./tournament-engine.server"))
+    .tournamentContext(guestId)
+    .catch(() => "");
+
+
   /* USTAD Coin wallet — the authoritative balance, never guessed */
   const walletFacts = await walletContext(guestId).catch(() => "");
   const notificationFacts = await notificationContext(guestId).catch(() => "");
