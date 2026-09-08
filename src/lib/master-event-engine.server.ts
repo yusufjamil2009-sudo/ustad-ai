@@ -271,6 +271,70 @@ function toView(e: Row): MasterEventView {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Per-guest entry lock                                                */
+/* ------------------------------------------------------------------ */
+
+/** Start of the current India day (05:30 UTC boundary), as an ISO timestamp. */
+function startOfIndiaDayIso(now: Date = new Date()): string {
+  const IST = 5.5 * 3_600_000;
+  const shifted = now.getTime() + IST;
+  const dayStart = Math.floor(shifted / 86_400_000) * 86_400_000;
+  return new Date(dayStart - IST).toISOString();
+}
+
+export type EntryLock = {
+  locked: boolean;
+  kind: "won" | "daily" | null;
+  reason: string | null;
+};
+
+const UNLOCKED: EntryLock = { locked: false, kind: null, reason: null };
+
+/**
+ * Two rules, both per guest and per event:
+ *   • WON → the event is locked for this guest until the next event opens.
+ *   • LOST → one try per India day while the event is still running.
+ * A live (active) attempt is never blocked; it is resumed instead.
+ */
+export async function entryLock(guestId: string, event: Row): Promise<EntryLock> {
+  if (String(event["event_type"]) !== "dynamic") return UNLOCKED;
+  const eventId = event["id"];
+
+  const { data: won } = await sdb()
+    .from("master_event_results")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("guest_id", guestId)
+    .eq("is_winner", true)
+    .limit(1)
+    .maybeSingle();
+  if (won) {
+    return {
+      locked: true,
+      kind: "won",
+      reason: "You have already won this event. It unlocks when the next event opens.",
+    };
+  }
+
+  const { data: today } = await sdb()
+    .from("master_event_attempts")
+    .select("id,status")
+    .eq("event_id", eventId)
+    .eq("guest_id", guestId)
+    .gte("started_at", startOfIndiaDayIso())
+    .limit(5);
+  const rows = ((today ?? []) as Row[]).filter((r) => String(r["status"]) !== "active");
+  if (rows.length > 0) {
+    return {
+      locked: true,
+      kind: "daily",
+      reason: "One try per day for this event. Come back tomorrow (India time).",
+    };
+  }
+  return UNLOCKED;
+}
+
 /** Autopilot runs at most once a minute per server instance. */
 let lastAutopilotMs = 0;
 
