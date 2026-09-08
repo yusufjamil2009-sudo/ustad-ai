@@ -13,6 +13,32 @@ import { normalizeForSpeech } from "./speech-normalize";
  */
 export const VOICE_TTS_ORDER = ["elevenlabs", "deepgram", "openai"] as const;
 
+/** Fallback TTS via the built-in Lovable AI gateway (no user API key needed). */
+async function gatewaySynthesize(text: string): Promise<{ audioBase64: string; mime: string }> {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) throw new Error("No voice provider is connected. Browser voice is still available.");
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "openai/gpt-4o-mini-tts",
+      input: text,
+      voice: "alloy",
+      response_format: "mp3",
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Voice synthesis failed [${res.status}]: ${body}`);
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return { audioBase64: btoa(binary), mime: "audio/mpeg" };
+}
+
 export async function synthesize(input: {
   token: unknown;
   text: string;
