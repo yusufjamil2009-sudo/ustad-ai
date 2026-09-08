@@ -134,9 +134,12 @@ export async function availableVoiceProviders(token: unknown) {
   const guestId = await requireGuest(token);
   const available = await usableProviders(guestId);
   return {
-    tts: available
-      .filter((p) => ["elevenlabs", "deepgram", "openai"].includes(p.provider))
-      .map((p) => p.provider),
+    tts: [
+      ...available
+        .filter((p) => ["elevenlabs", "deepgram", "openai"].includes(p.provider))
+        .map((p) => p.provider),
+      ...(process.env["LOVABLE_API_KEY"] ? ["lovable"] : []),
+    ],
     stt: [
       ...available
         .filter((p) => ["deepgram", "groq", "openai", "assemblyai"].includes(p.provider))
