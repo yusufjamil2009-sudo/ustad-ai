@@ -228,6 +228,10 @@ export type MasterEventView = {
   serverNow: string;
   playable: boolean;
   managedBy: string;
+  /** Per-guest entry lock: already won this event, or today's single try used. */
+  locked?: boolean;
+  lockKind?: "won" | "daily" | null;
+  lockReason?: string | null;
 };
 
 function toView(e: Row): MasterEventView {
