@@ -13,6 +13,9 @@ import {
   Swords,
   CalendarClock,
   ShoppingCart,
+  Search,
+  Crown,
+
 } from "lucide-react";
 import { useGuest, shortId } from "@/lib/ustad-client";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -25,7 +28,10 @@ const NAV = [
   { to: "/exams", label: "Exams", icon: ClipboardList },
   { to: "/crorepati", label: "Crorepati", icon: Trophy },
   { to: "/mega", label: "Mega", icon: Swords },
+  { to: "/tournament", label: "Mystery", icon: Search },
+  { to: "/god-tournament", label: "God Master", icon: Crown },
   { to: "/events", label: "Events", icon: CalendarClock },
+
   { to: "/shop", label: "USTAD Shop", icon: ShoppingCart },
   { to: "/notes", label: "Notes", icon: NotebookPen },
   { to: "/memory", label: "Memory", icon: Brain },
