@@ -376,18 +376,25 @@ export async function listEvents(token: unknown): Promise<MasterEventView[]> {
   });
   const reconciled: Row[] = [];
   for (const row of rows) reconciled.push(await reconcileStatus(row));
-  return reconciled.filter((e) => String(e["status"]) !== "archived").map(toView);
+  const views: MasterEventView[] = [];
+  for (const row of reconciled.filter((e) => String(e["status"]) !== "archived")) {
+    const view = toView(row);
+    const lock = await entryLock(guestId, row);
+    views.push({ ...view, locked: lock.locked, lockKind: lock.kind, lockReason: lock.reason });
+  }
+  return views;
 }
-
 
 export async function getEvent(input: {
   token: unknown;
   code: string;
 }): Promise<MasterEventView | null> {
-  await requireGuest(input.token);
+  const guestId = await requireGuest(input.token);
   const event = await eventByCode(input.code);
   if (!event) return null;
-  return toView(await reconcileStatus(event));
+  const row = await reconcileStatus(event);
+  const lock = await entryLock(guestId, row);
+  return { ...toView(row), locked: lock.locked, lockKind: lock.kind, lockReason: lock.reason };
 }
 
 /* ------------------------------------------------------------------ */
