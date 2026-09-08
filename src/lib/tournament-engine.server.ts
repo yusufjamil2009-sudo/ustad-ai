@@ -561,7 +561,8 @@ async function finalize(guestId: string, attempt: Row, rows: Row[]) {
 
   await notifyGuest(guestId, "tournament_won", `tournament_result:${attemptId}`, {
     eventName: cfg.title,
-    coins: cfg.winReward,
+    amount: cfg.winReward,
+
   }).catch(() => null);
 }
 
