@@ -414,13 +414,19 @@ function EventsPage() {
                   ) : (
                     <Button
                       size="sm"
-                      disabled={busy || !(e.status === "open" || e.status === "active")}
+                      disabled={
+                        busy || Boolean(e.locked) || !(e.status === "open" || e.status === "active")
+                      }
                       onClick={() => void start(e.code)}
                     >
                       {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                      {e.status === "open" || e.status === "active"
-                        ? "Enter event"
-                        : "Not open yet"}
+                      {e.locked
+                        ? e.lockKind === "won"
+                          ? "Won · locked"
+                          : "Played today"
+                        : e.status === "open" || e.status === "active"
+                          ? "Enter event"
+                          : "Not open yet"}
                     </Button>
                   )}
                   {e.leaderboardEnabled ? (
