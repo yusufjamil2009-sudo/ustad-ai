@@ -51,10 +51,11 @@ export async function synthesize(input: {
   const requested = input.provider ? [input.provider] : [...VOICE_TTS_ORDER];
   const order = [...new Set([...requested, ...VOICE_TTS_ORDER])].filter((p) => p !== "browser");
   const usable = order.map((p) => available.find((a) => a.provider === p)).filter(Boolean);
-  if (!usable.length) {
-    throw new Error("No voice provider is connected. Browser voice is still available.");
-  }
   const text = normalizeForSpeech(input.text).slice(0, 4000);
+  if (!usable.length) {
+    const audio = await gatewaySynthesize(text);
+    return { ...audio, provider: "lovable", language: input.language ?? "english" };
+  }
   const errors: string[] = [];
   // Try each configured provider in priority order; the first success wins.
   // A single broken/expired provider can never silence the classroom (Bug 21).
