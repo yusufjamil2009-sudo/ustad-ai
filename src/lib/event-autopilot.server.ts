@@ -239,6 +239,99 @@ export const EVENT_BLUEPRINTS: readonly EventBlueprint[] = [
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/* Unlimited variety — the AI invents a brand-new event each time       */
+/* ------------------------------------------------------------------ */
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function slugify(value: string, fallback: string): string {
+  const s = String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return s || fallback;
+}
+
+/**
+ * Ask USTAD AI to invent a genuinely new event: any theme, any length, any
+ * pace, any reward. The catalogue above is only the safety net for when no
+ * provider answers, so the stream of events is never limited to 12 kinds.
+ */
+export async function inventBlueprint(index: number): Promise<EventBlueprint> {
+  const fallback = pick(EVENT_BLUEPRINTS, index);
+  try {
+    const { coreCandidates } = await import("./api-manager.server");
+    const { runChat } = await import("./router.server");
+    const { parseJsonLoose } = await import("./exam-ai.server");
+    const candidates = coreCandidates();
+    if (!candidates.length) return fallback;
+
+    const recent = (await autoEvents())
+      .slice(0, 12)
+      .map((e) => String(e["name"]))
+      .join(", ");
+
+    const res = await runChat({
+      candidates,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You design quiz events for USTAD AI, an Indian study app. Invent ONE brand-new " +
+            "quiz event that is different from anything listed as recent. Any subject is allowed: " +
+            "school subjects, current affairs, culture, cinema, food, environment, careers, " +
+            "puzzles, festivals, coding, art, anything interesting for Indian students. " +
+            'Reply with JSON only: {"name":string,"description":string,"category":string,' +
+            '"difficulty":"easy"|"medium"|"hard"|"mixed","questionCount":5-30,' +
+            '"preTimerSeconds":5-20,"answerTimerSeconds":15-120,"requiredCorrect":number,' +
+            '"perCorrect":100-3000,"win":5000-200000,"participation":500-5000,' +
+            '"eliminatedOnWrong":boolean}. Questions are generated later, do not include any.',
+        },
+        {
+          role: "user",
+          content: `Recent events (avoid repeating these themes): ${recent || "none yet"}. Invent event number ${index + 1}.`,
+        },
+      ],
+      maxTokens: 700,
+    });
+
+    const raw = parseJsonLoose<Record<string, unknown>>(res.text);
+    const name = String(raw["name"] ?? "").trim().slice(0, 80);
+    if (!name) return fallback;
+    const questionCount = clampInt(raw["questionCount"], 5, 30, fallback.questionCount);
+    const difficultyRaw = String(raw["difficulty"] ?? "").toLowerCase();
+    const difficulty = (["easy", "medium", "hard", "mixed"].includes(difficultyRaw)
+      ? difficultyRaw
+      : fallback.difficulty) as EventBlueprint["difficulty"];
+
+    return {
+      slug: `${slugify(name, fallback.slug)}-${index + 1}`,
+      name,
+      description:
+        String(raw["description"] ?? fallback.description).trim().slice(0, 240) ||
+        fallback.description,
+      category: String(raw["category"] ?? fallback.category).trim().slice(0, 60) || fallback.category,
+      difficulty,
+      questionCount,
+      preTimerSeconds: clampInt(raw["preTimerSeconds"], 5, 20, fallback.preTimerSeconds),
+      answerTimerSeconds: clampInt(raw["answerTimerSeconds"], 15, 120, fallback.answerTimerSeconds),
+      requiredCorrect: clampInt(raw["requiredCorrect"], 0, questionCount, 0),
+      perCorrect: clampInt(raw["perCorrect"], 100, 3_000, fallback.perCorrect),
+      win: clampInt(raw["win"], 5_000, 200_000, fallback.win),
+      participation: clampInt(raw["participation"], 500, 5_000, fallback.participation),
+      eliminatedOnWrong: Boolean(raw["eliminatedOnWrong"]),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export type AutopilotReport = {
   created: Array<{ code: string; name: string; startTime: string; endTime: string }>;
   retired: string[];
@@ -311,8 +404,8 @@ async function createAutoEvent(
   startMs: number,
   gapDays: number,
 ): Promise<{ code: string; name: string; startTime: string; endTime: string } | null> {
-  const bp = pick(EVENT_BLUEPRINTS, index);
-  const code = `ustad-auto-${bp.slug}-${index + 1}`;
+  const bp = await inventBlueprint(index);
+  const code = `ustad-auto-${bp.slug}-${index + 1}`.slice(0, 90);
   const startTime = new Date(startMs).toISOString();
   // The event stays live and playable right up to the moment the next one opens.
   const endTime = new Date(startMs + gapDays * DAY).toISOString();

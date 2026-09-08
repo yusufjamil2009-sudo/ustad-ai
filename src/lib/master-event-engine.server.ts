@@ -228,6 +228,10 @@ export type MasterEventView = {
   serverNow: string;
   playable: boolean;
   managedBy: string;
+  /** Per-guest entry lock: already won this event, or today's single try used. */
+  locked?: boolean;
+  lockKind?: "won" | "daily" | null;
+  lockReason?: string | null;
 };
 
 function toView(e: Row): MasterEventView {
@@ -265,6 +269,70 @@ function toView(e: Row): MasterEventView {
     playable: type === "dynamic",
     managedBy: isLegacyEventType(type) ? `${type} engine` : "master event engine",
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Per-guest entry lock                                                */
+/* ------------------------------------------------------------------ */
+
+/** Start of the current India day (05:30 UTC boundary), as an ISO timestamp. */
+function startOfIndiaDayIso(now: Date = new Date()): string {
+  const IST = 5.5 * 3_600_000;
+  const shifted = now.getTime() + IST;
+  const dayStart = Math.floor(shifted / 86_400_000) * 86_400_000;
+  return new Date(dayStart - IST).toISOString();
+}
+
+export type EntryLock = {
+  locked: boolean;
+  kind: "won" | "daily" | null;
+  reason: string | null;
+};
+
+const UNLOCKED: EntryLock = { locked: false, kind: null, reason: null };
+
+/**
+ * Two rules, both per guest and per event:
+ *   • WON → the event is locked for this guest until the next event opens.
+ *   • LOST → one try per India day while the event is still running.
+ * A live (active) attempt is never blocked; it is resumed instead.
+ */
+export async function entryLock(guestId: string, event: Row): Promise<EntryLock> {
+  if (String(event["event_type"]) !== "dynamic") return UNLOCKED;
+  const eventId = event["id"];
+
+  const { data: won } = await sdb()
+    .from("master_event_results")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("guest_id", guestId)
+    .eq("is_winner", true)
+    .limit(1)
+    .maybeSingle();
+  if (won) {
+    return {
+      locked: true,
+      kind: "won",
+      reason: "You have already won this event. It unlocks when the next event opens.",
+    };
+  }
+
+  const { data: today } = await sdb()
+    .from("master_event_attempts")
+    .select("id,status")
+    .eq("event_id", eventId)
+    .eq("guest_id", guestId)
+    .gte("started_at", startOfIndiaDayIso())
+    .limit(5);
+  const rows = ((today ?? []) as Row[]).filter((r) => String(r["status"]) !== "active");
+  if (rows.length > 0) {
+    return {
+      locked: true,
+      kind: "daily",
+      reason: "One try per day for this event. Come back tomorrow (India time).",
+    };
+  }
+  return UNLOCKED;
 }
 
 /** Autopilot runs at most once a minute per server instance. */
@@ -308,18 +376,25 @@ export async function listEvents(token: unknown): Promise<MasterEventView[]> {
   });
   const reconciled: Row[] = [];
   for (const row of rows) reconciled.push(await reconcileStatus(row));
-  return reconciled.filter((e) => String(e["status"]) !== "archived").map(toView);
+  const views: MasterEventView[] = [];
+  for (const row of reconciled.filter((e) => String(e["status"]) !== "archived")) {
+    const view = toView(row);
+    const lock = await entryLock(guestId, row);
+    views.push({ ...view, locked: lock.locked, lockKind: lock.kind, lockReason: lock.reason });
+  }
+  return views;
 }
-
 
 export async function getEvent(input: {
   token: unknown;
   code: string;
 }): Promise<MasterEventView | null> {
-  await requireGuest(input.token);
+  const guestId = await requireGuest(input.token);
   const event = await eventByCode(input.code);
   if (!event) return null;
-  return toView(await reconcileStatus(event));
+  const row = await reconcileStatus(event);
+  const lock = await entryLock(guestId, row);
+  return { ...toView(row), locked: lock.locked, lockKind: lock.kind, lockReason: lock.reason };
 }
 
 /* ------------------------------------------------------------------ */
@@ -680,6 +755,10 @@ export async function startAttempt(input: {
 
   const status = String(event["status"]) as EventStatus;
   if (!acceptsEntries(status)) throw new Error("This event is not open for entries right now.");
+
+  // Won → locked until the next event. Lost → one try per India day.
+  const lock = await entryLock(guestId, event);
+  if (lock.locked) throw new Error(lock.reason ?? "This event is locked for you right now.");
 
   const decision = evaluateEntry({
     config: (event["entry_config"] ?? {}) as EntryConfig,
