@@ -402,6 +402,8 @@ export async function sendMessage(input: {
       ...(achievementFacts ? [achievementFacts] : []),
       ...(certificateFacts ? [certificateFacts] : []),
       ...(eventFacts ? [eventFacts] : []),
+      ...(tournamentFacts ? [tournamentFacts] : []),
+
       ...(walletFacts ? [walletFacts] : []),
       ...(notificationFacts ? [notificationFacts] : []),
     ],
