@@ -756,6 +756,10 @@ export async function startAttempt(input: {
   const status = String(event["status"]) as EventStatus;
   if (!acceptsEntries(status)) throw new Error("This event is not open for entries right now.");
 
+  // Won → locked until the next event. Lost → one try per India day.
+  const lock = await entryLock(guestId, event);
+  if (lock.locked) throw new Error(lock.reason ?? "This event is locked for you right now.");
+
   const decision = evaluateEntry({
     config: (event["entry_config"] ?? {}) as EntryConfig,
     status,
