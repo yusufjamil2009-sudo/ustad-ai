@@ -435,6 +435,9 @@ function EventsPage() {
                     </Button>
                   ) : null}
                 </div>
+                {e.locked && e.lockReason ? (
+                  <p className="mt-2 text-[12px] text-muted-foreground">{e.lockReason}</p>
+                ) : null}
                 {openCode === e.code ? <Leaderboard rows={board} /> : null}
               </div>
             ))}
