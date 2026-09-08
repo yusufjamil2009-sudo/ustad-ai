@@ -404,8 +404,8 @@ async function createAutoEvent(
   startMs: number,
   gapDays: number,
 ): Promise<{ code: string; name: string; startTime: string; endTime: string } | null> {
-  const bp = pick(EVENT_BLUEPRINTS, index);
-  const code = `ustad-auto-${bp.slug}-${index + 1}`;
+  const bp = await inventBlueprint(index);
+  const code = `ustad-auto-${bp.slug}-${index + 1}`.slice(0, 90);
   const startTime = new Date(startMs).toISOString();
   // The event stays live and playable right up to the moment the next one opens.
   const endTime = new Date(startMs + gapDays * DAY).toISOString();
