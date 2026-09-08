@@ -17,6 +17,9 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useGuest } from "@/lib/ustad-client";
 import { shopFn, shopBuyFn } from "@/lib/wallet.functions";
+import { tournamentTicketsFn, buyGodTicketFn } from "@/lib/tournament.functions";
+import { GOD_TICKET, formatIndianCoins } from "@/lib/tournament-spec";
+
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
@@ -110,13 +113,19 @@ function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
+  const [tickets, setTickets] = useState(0);
+  const [buyingTicket, setBuyingTicket] = useState(false);
 
   /** Always re-read the authoritative wallet; never compute a balance locally. */
   const refresh = useCallback(async () => {
     if (!token) return;
     try {
-      const view = await shopFn({ data: { token } });
+      const [view, ticketCount] = await Promise.all([
+        shopFn({ data: { token } }),
+        tournamentTicketsFn({ data: { token } }).catch(() => 0),
+      ]);
       setShop(view);
+      setTickets(Number(ticketCount ?? 0));
       setActive((cur) => cur ?? view.categories[0]?.id ?? null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not load the shop.");
@@ -128,6 +137,21 @@ function ShopPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const buyTicket = useCallback(async () => {
+    if (!token || buyingTicket) return;
+    setBuyingTicket(true);
+    try {
+      const res = await buyGodTicketFn({ data: { token } });
+      toast.success(res.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed.");
+    } finally {
+      await refresh();
+      setBuyingTicket(false);
+    }
+  }, [token, buyingTicket, refresh]);
+
 
   const buy = useCallback(
     async (item: Item) => {
@@ -165,6 +189,36 @@ function ShopPage() {
         <Coins className="size-5 text-amber-400" aria-hidden />
         <span className="text-lg font-semibold">🪙 {shop ? shop.balanceLabel : "…"}</span>
       </div>
+
+      {/* God Tournament Ticket — a consumable entry pass, not a cosmetic. It
+          unlocks entry only; it never affects answers, timers or scoring. */}
+      <div
+        data-testid="shop-god-ticket"
+        className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3"
+      >
+        <div className="min-w-0">
+          <h2 className="font-medium">🎟️ {GOD_TICKET.name}</h2>
+          <p className="text-sm text-muted-foreground">{GOD_TICKET.description}</p>
+          <p className="mt-1 text-sm">
+            🪙 {formatIndianCoins(GOD_TICKET.price)} · you own{" "}
+            <span data-testid="god-ticket-count">{tickets}</span>
+          </p>
+        </div>
+        <Button
+          data-testid="buy-god-ticket"
+          disabled={buyingTicket || !shop || shop.wallet.balance < GOD_TICKET.price}
+          onClick={buyTicket}
+          className="gap-1.5"
+        >
+          {buyingTicket ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <ShoppingCart className="size-4" aria-hidden />
+          )}
+          Buy ticket
+        </Button>
+      </div>
+
 
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground">
