@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClassroomRouteImport } from './routes/classroom'
 import { Route as CrorepatiRouteImport } from './routes/crorepati'
 import { Route as EventsRouteImport } from './routes/events'
+import { Route as GodTournamentRouteImport } from './routes/god-tournament'
 import { Route as MegaRouteImport } from './routes/mega'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as NotesRouteImport } from './routes/notes'
@@ -20,6 +21,7 @@ import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StudyRouteImport } from './routes/study'
+import { Route as TournamentRouteImport } from './routes/tournament'
 import { Route as ExamsIndexRouteImport } from './routes/exams.index'
 import { Route as ExamsExamIdRouteImport } from './routes/exams.$examId'
 import { Route as ApiPublicEventAutopilotRouteImport } from './routes/api/public/event-autopilot'
@@ -46,6 +48,11 @@ const CrorepatiRoute = CrorepatiRouteImport.update({
 const EventsRoute = EventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GodTournamentRoute = GodTournamentRouteImport.update({
+  id: '/god-tournament',
+  path: '/god-tournament',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MegaRoute = MegaRouteImport.update({
@@ -81,6 +88,11 @@ const ShopRoute = ShopRouteImport.update({
 const StudyRoute = StudyRouteImport.update({
   id: '/study',
   path: '/study',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TournamentRoute = TournamentRouteImport.update({
+  id: '/tournament',
+  path: '/tournament',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExamsIndexRoute = ExamsIndexRouteImport.update({
@@ -125,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/classroom': typeof ClassroomRoute
   '/crorepati': typeof CrorepatiRoute
   '/events': typeof EventsRoute
+  '/god-tournament': typeof GodTournamentRoute
   '/mega': typeof MegaRoute
   '/memory': typeof MemoryRoute
   '/notes': typeof NotesRoute
@@ -132,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/study': typeof StudyRoute
+  '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
   '/exams/': typeof ExamsIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
@@ -145,6 +159,7 @@ export interface FileRoutesByTo {
   '/classroom': typeof ClassroomRoute
   '/crorepati': typeof CrorepatiRoute
   '/events': typeof EventsRoute
+  '/god-tournament': typeof GodTournamentRoute
   '/mega': typeof MegaRoute
   '/memory': typeof MemoryRoute
   '/notes': typeof NotesRoute
@@ -152,6 +167,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/study': typeof StudyRoute
+  '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
   '/exams': typeof ExamsIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
@@ -166,6 +182,7 @@ export interface FileRoutesById {
   '/classroom': typeof ClassroomRoute
   '/crorepati': typeof CrorepatiRoute
   '/events': typeof EventsRoute
+  '/god-tournament': typeof GodTournamentRoute
   '/mega': typeof MegaRoute
   '/memory': typeof MemoryRoute
   '/notes': typeof NotesRoute
@@ -173,6 +190,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/study': typeof StudyRoute
+  '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
   '/exams/': typeof ExamsIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
@@ -188,6 +206,7 @@ export interface FileRouteTypes {
     | '/classroom'
     | '/crorepati'
     | '/events'
+    | '/god-tournament'
     | '/mega'
     | '/memory'
     | '/notes'
@@ -195,6 +214,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shop'
     | '/study'
+    | '/tournament'
     | '/exams/$examId'
     | '/exams/'
     | '/api/public/event-autopilot'
@@ -208,6 +228,7 @@ export interface FileRouteTypes {
     | '/classroom'
     | '/crorepati'
     | '/events'
+    | '/god-tournament'
     | '/mega'
     | '/memory'
     | '/notes'
@@ -215,6 +236,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shop'
     | '/study'
+    | '/tournament'
     | '/exams/$examId'
     | '/exams'
     | '/api/public/event-autopilot'
@@ -228,6 +250,7 @@ export interface FileRouteTypes {
     | '/classroom'
     | '/crorepati'
     | '/events'
+    | '/god-tournament'
     | '/mega'
     | '/memory'
     | '/notes'
@@ -235,6 +258,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shop'
     | '/study'
+    | '/tournament'
     | '/exams/$examId'
     | '/exams/'
     | '/api/public/event-autopilot'
@@ -249,6 +273,7 @@ export interface RootRouteChildren {
   ClassroomRoute: typeof ClassroomRoute
   CrorepatiRoute: typeof CrorepatiRoute
   EventsRoute: typeof EventsRoute
+  GodTournamentRoute: typeof GodTournamentRoute
   MegaRoute: typeof MegaRoute
   MemoryRoute: typeof MemoryRoute
   NotesRoute: typeof NotesRoute
@@ -256,6 +281,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ShopRoute: typeof ShopRoute
   StudyRoute: typeof StudyRoute
+  TournamentRoute: typeof TournamentRoute
   ExamsExamIdRoute: typeof ExamsExamIdRoute
   ExamsIndexRoute: typeof ExamsIndexRoute
   ApiPublicEventAutopilotRoute: typeof ApiPublicEventAutopilotRoute
@@ -293,6 +319,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/events'
       preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/god-tournament': {
+      id: '/god-tournament'
+      path: '/god-tournament'
+      fullPath: '/god-tournament'
+      preLoaderRoute: typeof GodTournamentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mega': {
@@ -342,6 +375,13 @@ declare module '@tanstack/react-router' {
       path: '/study'
       fullPath: '/study'
       preLoaderRoute: typeof StudyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tournament': {
+      id: '/tournament'
+      path: '/tournament'
+      fullPath: '/tournament'
+      preLoaderRoute: typeof TournamentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/exams/': {
@@ -401,6 +441,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClassroomRoute: ClassroomRoute,
   CrorepatiRoute: CrorepatiRoute,
   EventsRoute: EventsRoute,
+  GodTournamentRoute: GodTournamentRoute,
   MegaRoute: MegaRoute,
   MemoryRoute: MemoryRoute,
   NotesRoute: NotesRoute,
@@ -408,6 +449,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ShopRoute: ShopRoute,
   StudyRoute: StudyRoute,
+  TournamentRoute: TournamentRoute,
   ExamsExamIdRoute: ExamsExamIdRoute,
   ExamsIndexRoute: ExamsIndexRoute,
   ApiPublicEventAutopilotRoute: ApiPublicEventAutopilotRoute,
