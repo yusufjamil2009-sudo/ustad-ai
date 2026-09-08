@@ -67,9 +67,14 @@ export async function synthesize(input: {
       errors.push(`${chosen!.provider}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  throw new Error(
-    `All voice providers failed (${errors.join("; ")}). Browser voice is still available.`,
-  );
+  try {
+    const audio = await gatewaySynthesize(text);
+    return { ...audio, provider: "lovable", language: input.language ?? "english" };
+  } catch {
+    throw new Error(
+      `All voice providers failed (${errors.join("; ")}). Browser voice is still available.`,
+    );
+  }
 }
 
 /** Fallback STT via the built-in Lovable AI gateway (no user API key needed). */
