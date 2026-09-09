@@ -24,8 +24,10 @@ import { Route as StudyRouteImport } from './routes/study'
 import { Route as TournamentRouteImport } from './routes/tournament'
 import { Route as ExamsIndexRouteImport } from './routes/exams.index'
 import { Route as ExamsExamIdRouteImport } from './routes/exams.$examId'
+import { Route as NotificationsIdRouteImport } from './routes/notifications.$id'
 import { Route as ApiPublicEventAutopilotRouteImport } from './routes/api/public/event-autopilot'
 import { Route as ApiPublicExamSchedulerRouteImport } from './routes/api/public/exam-scheduler'
+import { Route as ApiPublicNotificationAnnounceRouteImport } from './routes/api/public/notification-announce'
 import { Route as ApiPublicNotificationSchedulerRouteImport } from './routes/api/public/notification-scheduler'
 import { Route as GalleryShareTokenRouteImport } from './routes/gallery.share.$token'
 import { Route as VerifyCertificateVtokenRouteImport } from './routes/verify.certificate.$vtoken'
@@ -105,6 +107,11 @@ const ExamsExamIdRoute = ExamsExamIdRouteImport.update({
   path: '/exams/$examId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsIdRoute = NotificationsIdRouteImport.update({
+  id: '/notifications/$id',
+  path: '/notifications/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicEventAutopilotRoute = ApiPublicEventAutopilotRouteImport.update({
   id: '/api/public/event-autopilot',
   path: '/api/public/event-autopilot',
@@ -115,6 +122,12 @@ const ApiPublicExamSchedulerRoute = ApiPublicExamSchedulerRouteImport.update({
   path: '/api/public/exam-scheduler',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNotificationAnnounceRoute =
+  ApiPublicNotificationAnnounceRouteImport.update({
+    id: '/api/public/notification-announce',
+    path: '/api/public/notification-announce',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicNotificationSchedulerRoute =
   ApiPublicNotificationSchedulerRouteImport.update({
     id: '/api/public/notification-scheduler',
@@ -147,9 +160,11 @@ export interface FileRoutesByFullPath {
   '/study': typeof StudyRoute
   '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
+  '/notifications/$id': typeof NotificationsIdRoute
   '/exams/': typeof ExamsIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
+  '/api/public/notification-announce': typeof ApiPublicNotificationAnnounceRoute
   '/api/public/notification-scheduler': typeof ApiPublicNotificationSchedulerRoute
   '/gallery/share/$token': typeof GalleryShareTokenRoute
   '/verify/certificate/$vtoken': typeof VerifyCertificateVtokenRoute
@@ -169,9 +184,11 @@ export interface FileRoutesByTo {
   '/study': typeof StudyRoute
   '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
+  '/notifications/$id': typeof NotificationsIdRoute
   '/exams': typeof ExamsIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
+  '/api/public/notification-announce': typeof ApiPublicNotificationAnnounceRoute
   '/api/public/notification-scheduler': typeof ApiPublicNotificationSchedulerRoute
   '/gallery/share/$token': typeof GalleryShareTokenRoute
   '/verify/certificate/$vtoken': typeof VerifyCertificateVtokenRoute
@@ -192,9 +209,11 @@ export interface FileRoutesById {
   '/study': typeof StudyRoute
   '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
+  '/notifications/$id': typeof NotificationsIdRoute
   '/exams/': typeof ExamsIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
+  '/api/public/notification-announce': typeof ApiPublicNotificationAnnounceRoute
   '/api/public/notification-scheduler': typeof ApiPublicNotificationSchedulerRoute
   '/gallery/share/$token': typeof GalleryShareTokenRoute
   '/verify/certificate/$vtoken': typeof VerifyCertificateVtokenRoute
@@ -216,9 +235,11 @@ export interface FileRouteTypes {
     | '/study'
     | '/tournament'
     | '/exams/$examId'
+    | '/notifications/$id'
     | '/exams/'
     | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
+    | '/api/public/notification-announce'
     | '/api/public/notification-scheduler'
     | '/gallery/share/$token'
     | '/verify/certificate/$vtoken'
@@ -238,9 +259,11 @@ export interface FileRouteTypes {
     | '/study'
     | '/tournament'
     | '/exams/$examId'
+    | '/notifications/$id'
     | '/exams'
     | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
+    | '/api/public/notification-announce'
     | '/api/public/notification-scheduler'
     | '/gallery/share/$token'
     | '/verify/certificate/$vtoken'
@@ -260,9 +283,11 @@ export interface FileRouteTypes {
     | '/study'
     | '/tournament'
     | '/exams/$examId'
+    | '/notifications/$id'
     | '/exams/'
     | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
+    | '/api/public/notification-announce'
     | '/api/public/notification-scheduler'
     | '/gallery/share/$token'
     | '/verify/certificate/$vtoken'
@@ -283,9 +308,11 @@ export interface RootRouteChildren {
   StudyRoute: typeof StudyRoute
   TournamentRoute: typeof TournamentRoute
   ExamsExamIdRoute: typeof ExamsExamIdRoute
+  NotificationsIdRoute: typeof NotificationsIdRoute
   ExamsIndexRoute: typeof ExamsIndexRoute
   ApiPublicEventAutopilotRoute: typeof ApiPublicEventAutopilotRoute
   ApiPublicExamSchedulerRoute: typeof ApiPublicExamSchedulerRoute
+  ApiPublicNotificationAnnounceRoute: typeof ApiPublicNotificationAnnounceRoute
   ApiPublicNotificationSchedulerRoute: typeof ApiPublicNotificationSchedulerRoute
   GalleryShareTokenRoute: typeof GalleryShareTokenRoute
   VerifyCertificateVtokenRoute: typeof VerifyCertificateVtokenRoute
@@ -398,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExamsExamIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications/$id': {
+      id: '/notifications/$id'
+      path: '/notifications/$id'
+      fullPath: '/notifications/$id'
+      preLoaderRoute: typeof NotificationsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/event-autopilot': {
       id: '/api/public/event-autopilot'
       path: '/api/public/event-autopilot'
@@ -410,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/exam-scheduler'
       fullPath: '/api/public/exam-scheduler'
       preLoaderRoute: typeof ApiPublicExamSchedulerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/notification-announce': {
+      id: '/api/public/notification-announce'
+      path: '/api/public/notification-announce'
+      fullPath: '/api/public/notification-announce'
+      preLoaderRoute: typeof ApiPublicNotificationAnnounceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/notification-scheduler': {
@@ -451,9 +492,11 @@ const rootRouteChildren: RootRouteChildren = {
   StudyRoute: StudyRoute,
   TournamentRoute: TournamentRoute,
   ExamsExamIdRoute: ExamsExamIdRoute,
+  NotificationsIdRoute: NotificationsIdRoute,
   ExamsIndexRoute: ExamsIndexRoute,
   ApiPublicEventAutopilotRoute: ApiPublicEventAutopilotRoute,
   ApiPublicExamSchedulerRoute: ApiPublicExamSchedulerRoute,
+  ApiPublicNotificationAnnounceRoute: ApiPublicNotificationAnnounceRoute,
   ApiPublicNotificationSchedulerRoute: ApiPublicNotificationSchedulerRoute,
   GalleryShareTokenRoute: GalleryShareTokenRoute,
   VerifyCertificateVtokenRoute: VerifyCertificateVtokenRoute,

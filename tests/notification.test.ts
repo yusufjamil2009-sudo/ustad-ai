@@ -16,6 +16,7 @@ import {
   LANGUAGES,
   UI_TEXT,
   dueReminders,
+  dueEndReminders,
   formatCoins,
   formatDayHeading,
   formatExactDateTime,
@@ -329,4 +330,48 @@ test("a language change cannot alter an already rendered notification", () => {
   assert.notEqual(first.title, second.title);
   // The Hindi render is stable no matter how many times it is produced.
   assert.deepEqual(renderNotification("coins_received", "hindi", vars), first);
+});
+
+/* ------------------------------------------------------------------ */
+/* End-phase milestones (ending soon / closed)                         */
+/* ------------------------------------------------------------------ */
+
+const EV_START = "2026-09-15T04:30:00.000Z"; // 10:00 IST
+const EV_END = "2026-09-15T12:30:00.000Z"; // 18:00 IST
+
+test("no end milestone before the event starts", () => {
+  assert.deepEqual(dueEndReminders(EV_START, EV_END, at("2026-09-14T12:00:00.000Z")), []);
+  assert.deepEqual(dueEndReminders(EV_START, EV_END, at("2026-09-15T04:29:00.000Z")), []);
+});
+
+test("ending soon fires only inside the last hour before the end", () => {
+  // 1.5 hours before the end → not yet ending-soon.
+  assert.deepEqual(dueEndReminders(EV_START, EV_END, at("2026-09-15T11:00:00.000Z")), []);
+  // 30 minutes before the end → ending soon.
+  assert.deepEqual(dueEndReminders(EV_START, EV_END, at("2026-09-15T12:00:00.000Z")), [
+    "ending_soon",
+  ]);
+});
+
+test("closed fires once the scheduled end has passed", () => {
+  assert.deepEqual(dueEndReminders(EV_START, EV_END, at("2026-09-15T12:30:00.000Z")), ["closed"]);
+  assert.deepEqual(dueEndReminders(EV_START, EV_END, at("2026-09-15T14:00:00.000Z")), ["closed"]);
+});
+
+test("missing end time never yields a milestone", () => {
+  assert.deepEqual(dueEndReminders(EV_START, "", at("2026-09-15T14:00:00.000Z")), []);
+});
+
+test("the new types exist across all three languages", () => {
+  for (const type of ["event_ending_soon", "event_closed", "new_feature", "important_update"]) {
+    for (const lang of LANGUAGES) {
+      const r = renderNotification(type as NotificationType, lang, {
+        eventName: "Mega Event",
+        featureName: "Leaderboard",
+        source: "Please update the app.",
+      });
+      assert.ok(r.title.trim().length > 0, `${type}/${lang}`);
+      assert.ok(r.message.trim().length > 0, `${type}/${lang} message`);
+    }
+  }
 });

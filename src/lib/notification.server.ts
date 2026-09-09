@@ -244,6 +244,7 @@ export async function listNotifications(args: {
     .from("ustad_notifications")
     .select("*")
     .eq("guest_id", guestId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit + 1);
@@ -274,7 +275,8 @@ export async function unreadCount(guestId: string): Promise<number> {
       .from("ustad_notifications")
       .select("id", { count: "exact", head: true })
       .eq("guest_id", guestId)
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .is("deleted_at", null);
     return Number(count ?? 0);
   } catch {
     return 0;
@@ -298,7 +300,8 @@ export async function markRead(args: { token: unknown; id: string }): Promise<{ 
     .update({ is_read: true, read_at: new Date().toISOString() })
     .eq("guest_id", guestId) // ownership is enforced here, not by the client
     .eq("id", args.id)
-    .eq("is_read", false);
+    .eq("is_read", false)
+    .is("deleted_at", null);
   return { unread: await unreadCount(guestId) };
 }
 
@@ -308,8 +311,262 @@ export async function markAllRead(token: unknown): Promise<{ unread: number }> {
     .from("ustad_notifications")
     .update({ is_read: true, read_at: new Date().toISOString() })
     .eq("guest_id", guestId)
-    .eq("is_read", false);
+    .eq("is_read", false)
+    .is("deleted_at", null);
   return { unread: await unreadCount(guestId) };
+}
+
+/**
+ * Delete ONE notification — independent from every other row.
+ *
+ * Ownership is enforced here (never trusted from the client), so a guest can
+ * only ever remove their own notification. It is a soft-delete tombstone:
+ * the row is excluded from the feed, the unread badge and the detail view, but
+ * kept so history stays intact and a deleted reminder is never re-announced.
+ */
+export async function deleteNotification(args: {
+  token: unknown;
+  id: string;
+}): Promise<{ ok: true; unread: number }> {
+  const guestId = await requireGuest(args.token);
+  await sdb()
+    .from("ustad_notifications")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("guest_id", guestId)
+    .eq("id", args.id)
+    .is("deleted_at", null);
+  return { ok: true, unread: await unreadCount(guestId) };
+}
+
+/* ------------------------------------------------------------------ */
+/* Detail + real-data enrichment                                       */
+/* ------------------------------------------------------------------ */
+
+export type DetailSectionKey =
+  | "what"
+  | "when"
+  | "howToPlay"
+  | "requirements"
+  | "duration"
+  | "entry"
+  | "reward"
+  | "howToJoin"
+  | "notes"
+  | "rules";
+
+export type NotificationDetail = FeedItem & {
+  sections: Array<{ key: DetailSectionKey; value: string }>;
+  /** Button target: always an EXISTING screen (never a duplicate page). */
+  openPath: string;
+};
+
+/** Human, localized duration label from a millisecond span. */
+function durationLabel(ms: number, language: Language): string {
+  const m = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(m / 60);
+  const mins = m % 60;
+  const hoursPart =
+    language === "hindi" ? `${h} घंटे` : language === "hinglish" ? `${h} ghante` : `${h} hr`;
+  const minPart = mins > 0 ? ` ${mins}m` : "";
+  return `${hoursPart}${minPart}`;
+}
+
+/** Load one notification row for a guest (deleted rows are gone). */
+async function notificationRow(guestId: string, id: string): Promise<Row | null> {
+  const { data } = await sdb()
+    .from("ustad_notifications")
+    .select("*")
+    .eq("guest_id", guestId)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  return (data as Row) ?? null;
+}
+
+/** Localized number label for a coin amount (Indian grouping). */
+function coinLabel(n: number): string {
+  return `${(n ?? 0).toLocaleString("en-IN")} USTAD Coins`;
+}
+
+/**
+ * Full, structured detail for one notification. The title/message come from
+ * the stored row (the SHORT preview); the labelled sections are enriched from
+ * REAL configured data when the notification refers to a real event or coin
+ * offer — never invented. When there is nothing real to enrich from, only the
+ * stored message is shown.
+ *
+ * Opening a detail also marks it read (server-side), so the badge drops.
+ */
+export async function notificationDetail(args: {
+  token: unknown;
+  id: string;
+}): Promise<NotificationDetail | null> {
+  const guestId = await requireGuest(args.token);
+  const row = await notificationRow(guestId, String(args.id ?? ""));
+  if (!row) return null;
+
+  // Opening a notification means the user read it (spec: read on open).
+  if (!row["is_read"]) {
+    await sdb()
+      .from("ustad_notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("guest_id", guestId)
+      .eq("id", row["id"])
+      .eq("is_read", false);
+  }
+
+  const locale = await guestLocale(guestId);
+  const language = normalizeLanguage(row["language"]);
+  const tz = locale.timezone;
+  const type = String(row["type"]);
+  const metadata = (row["metadata"] ?? {}) as Row;
+  const sections: NotificationDetail["sections"] = [];
+
+  const push = (key: DetailSectionKey, value: string) => {
+    if (value) sections.push({ key, value });
+  };
+
+  // ---- Master Event referenced by this notification ----------------------
+  if (String(row["reference_type"] ?? "") === "master_event" && row["reference_id"]) {
+    const { data: ev } = await sdb()
+      .from("master_events")
+      .select(
+        "id, code, name, description, event_type, status, start_time, end_time, question_count, entry_config, reward_config",
+      )
+      .eq("id", row["reference_id"])
+      .maybeSingle();
+    if (ev) {
+      const e = ev as Row;
+      push("what", String(e["description"] ?? String(e["name"] ?? "")));
+      const start = e["start_time"] ? String(e["start_time"]) : "";
+      const end = e["end_time"] ? String(e["end_time"]) : "";
+      if (start) {
+        const startText = formatExactDateTime(start, language, tz);
+        const endText = end ? formatExactDateTime(end, language, tz) : "";
+        push("when", end ? `${startText} → ${endText}` : startText);
+      }
+      if (start && end) {
+        push("duration", durationLabel(Date.parse(end) - Date.parse(start), language));
+      }
+      const entryCfg = (e["entry_config"] ?? {}) as Row;
+      const entryType = String(entryCfg["type"] ?? "free");
+      const cost = Number(entryCfg["coinCost"] ?? entryCfg["cost"] ?? 0);
+      if (entryType !== "free" && cost > 0) {
+        push("entry", coinLabel(cost));
+      } else {
+        push(
+          "entry",
+          language === "hindi" ? "निःशुल्क" : language === "hinglish" ? "Free" : "Free",
+        );
+      }
+      const rewardCfg = (e["reward_config"] ?? {}) as Row;
+      const win = Number(rewardCfg["win"] ?? 0);
+      if (win > 0) push("reward", coinLabel(win));
+      const qn = Number(e["question_count"] ?? 0);
+      if (qn > 0) push("requirements", `${qn} questions`);
+      // Reuse the live event status as a note.
+      const st = String(e["status"] ?? "");
+      if (st) {
+        const statusLabel =
+          st === "open" || st === "active"
+            ? language === "hindi"
+              ? "अभी चल रहा है"
+              : language === "hinglish"
+                ? "abhi chal raha hai"
+                : "now open"
+            : st;
+        push("notes", `${String(e["name"] ?? "")} · ${statusLabel}`);
+      }
+    }
+  }
+
+  // ---- Global Coin Offer referenced by this notification ------------------
+  if ((type === "offer_coming_soon" || type === "offer_live") && metadata["weeklyOfferId"]) {
+    const wid = String(metadata["weeklyOfferId"]);
+    const { data: off } = await sdb()
+      .from("ustad_coin_offers")
+      .select("weekly_offer_id, discount_pct, start_iso, end_iso")
+      .eq("weekly_offer_id", wid)
+      .maybeSingle();
+    if (off) {
+      const pct = Number(off["discount_pct"] ?? 0);
+      const oStart = String(off["start_iso"] ?? "");
+      const oEnd = String(off["end_iso"] ?? "");
+      push(
+        "what",
+        language === "hindi"
+          ? `सभी eligible USTAD Coin खरीद पर ${pct}% वास्तविक छूट।`
+          : language === "hinglish"
+            ? `Saare eligible USTAD Coin purchases par ${pct}% real discount.`
+            : `${pct}% real discount on every eligible USTAD Coin purchase across the whole app.`,
+      );
+      if (oStart && oEnd) {
+        push(
+          "when",
+          `${formatExactDateTime(oStart, language, tz)} → ${formatExactDateTime(oEnd, language, tz)}`,
+        );
+        push("duration", durationLabel(Date.parse(oEnd) - Date.parse(oStart), language));
+      }
+      push(
+        "requirements",
+        language === "hindi"
+          ? "सभी सिक्का-आधारित आइटम (शॉप, टूर्नामेंट, इवेंट, पास) eligible हैं।"
+          : language === "hinglish"
+            ? "Saare coin-based items (shop, tournament, event, pass) eligible hain."
+            : "All coin-based items (shop, tournaments, events, passes) are eligible.",
+      );
+    }
+  }
+
+  const feedItem = toFeedItem(row, tz);
+  return {
+    ...feedItem,
+    sections,
+    openPath:
+      (metadata["openPath"] as string) ||
+      String(row["action_path"] ?? ACTION_PATH_OF[type as NotificationType] ?? "/"),
+  };
+}
+
+/**
+ * Broadcast an announcement (system announcement / new feature) to every real
+ * active guest. NOT exposed to the browser — callers are server tasks guarded
+ * by the shared cron secret. Each guest gets one row (unique guest+dedupe),
+ * so re-running is a no-op per guest.
+ */
+export async function broadcastAnnouncement(input: {
+  type: "new_feature" | "important_update";
+  dedupeKey: string;
+  vars?: NotificationVars;
+  referenceType?: string;
+  referenceId?: string;
+  openPath?: string;
+  limit?: number;
+}): Promise<number> {
+  const { data } = await sdb()
+    .from("guests")
+    .select("id")
+    .limit(input.limit ?? 1000);
+  const guests = ((data as Row[]) ?? []).map((r) => String(r["id"]));
+  let sent = 0;
+  for (const guestId of guests) {
+    const base = {
+      guestId,
+      type: input.type,
+      dedupeKey: `announce:${input.dedupeKey}`,
+    };
+    const opts: Parameters<typeof createNotification>[0] = { ...base };
+    if (input.vars) opts.vars = input.vars;
+    if (input.referenceType) opts.referenceType = input.referenceType;
+    if (input.referenceId) opts.referenceId = input.referenceId;
+    if (input.openPath) {
+      opts.metadata = { openPath: input.openPath };
+      opts.actionPath = input.openPath;
+    }
+    const row = await createNotification(opts);
+    if (row) sent += 1;
+  }
+  return sent;
 }
 
 /* ------------------------------------------------------------------ */

@@ -12,12 +12,13 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, X, Check } from "lucide-react";
+import { Bell, X, Check, Trash2 } from "lucide-react";
 import {
   notificationFeedFn,
   notificationUnreadFn,
   notificationMarkReadFn,
   notificationMarkAllReadFn,
+  notificationDeleteFn,
   upcomingEventsFn,
 } from "@/lib/notification.functions";
 import {
@@ -178,6 +179,9 @@ export function NotificationCenter() {
   /* ---------------- actions ---------------- */
 
   const onOpenItem = async (item: FeedItem) => {
+    // Clicking a list row opens the FULL DETAIL page for this one notification
+    // (the list itself stays short). Marking read also happens server-side in
+    // the detail fetch, but we optimistically drop the badge right away.
     if (!item.isRead) {
       setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
       setUnread((u) => Math.max(0, u - 1));
@@ -190,9 +194,27 @@ export function NotificationCenter() {
         /* optimistic state already applied */
       }
     }
-    if (item.actionPath && item.actionPath !== "/") {
-      setOpen(false);
-      void navigate({ to: item.actionPath });
+    setOpen(false);
+    void navigate({ to: `/notifications/${item.id}` });
+  };
+
+  const onDeleteItem = async (item: FeedItem) => {
+    // Deleting is per-row: it removes ONLY this notification and never touches
+    // the others. Soft-delete is server-side (persistent), not a UI-only hide.
+    setItems((prev) => prev.filter((n) => n.id !== item.id));
+    try {
+      const r = (await notificationDeleteFn({ data: { token, id: item.id } })) as {
+        unread: number;
+      };
+      setUnread(Number(r?.unread ?? 0));
+    } catch {
+      // Revert on failure.
+      setItems((prev) => {
+        const exists = prev.some((n) => n.id === item.id);
+        return exists
+          ? prev
+          : [item, ...prev].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      });
     }
   };
 
@@ -387,44 +409,56 @@ export function NotificationCenter() {
                     <ul>
                       {group.rows.map((n) => (
                         <li key={n.id}>
-                          <button
-                            type="button"
-                            data-testid={`notification-${n.id}`}
-                            data-type={n.type}
-                            data-language={n.language}
-                            data-read={n.isRead ? "1" : "0"}
-                            onClick={() => void onOpenItem(n)}
-                            className={`flex w-full gap-3 border-b border-border/60 px-4 py-3 text-left transition-colors hover:bg-sidebar-accent/40 ${
-                              n.isRead ? "" : "bg-primary/5"
-                            }`}
-                          >
-                            <span className="shrink-0 text-lg leading-none">
-                              {ICON_OF[n.type as NotificationType] ?? "🔔"}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-start gap-2">
-                                <span className="min-w-0 flex-1 text-sm font-medium break-words">
-                                  {n.title}
+                          <div className="relative">
+                            <button
+                              type="button"
+                              data-testid={`notification-${n.id}`}
+                              data-type={n.type}
+                              data-language={n.language}
+                              data-read={n.isRead ? "1" : "0"}
+                              onClick={() => void onOpenItem(n)}
+                              className={`flex w-full gap-3 border-b border-border/60 py-3 pr-9 pl-4 text-left transition-colors hover:bg-sidebar-accent/40 ${
+                                n.isRead ? "" : "bg-primary/5"
+                              }`}
+                            >
+                              <span className="shrink-0 text-lg leading-none">
+                                {ICON_OF[n.type as NotificationType] ?? "🔔"}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-start gap-2">
+                                  <span className="min-w-0 flex-1 text-sm font-medium break-words">
+                                    {n.title}
+                                  </span>
+                                  {!n.isRead ? (
+                                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
+                                  ) : null}
                                 </span>
-                                {!n.isRead ? (
-                                  <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
+                                {n.message ? (
+                                  <span className="mt-0.5 block text-xs whitespace-pre-line text-muted-foreground">
+                                    {n.message}
+                                  </span>
                                 ) : null}
-                              </span>
-                              {n.message ? (
-                                <span className="mt-0.5 block text-xs whitespace-pre-line text-muted-foreground">
-                                  {n.message}
+                                {/* Exact date+time is always present; relative is extra (spec §9). */}
+                                <span
+                                  data-testid={`time-${n.id}`}
+                                  className="mt-1 block text-[11px] text-muted-foreground/80"
+                                >
+                                  {formatTimeOnly(n.createdAt, n.language, timezone)} •{" "}
+                                  {n.exactTime} • {formatRelative(n.createdAt, n.language)}
                                 </span>
-                              ) : null}
-                              {/* Exact date+time is always present; relative is extra (spec §9). */}
-                              <span
-                                data-testid={`time-${n.id}`}
-                                className="mt-1 block text-[11px] text-muted-foreground/80"
-                              >
-                                {formatTimeOnly(n.createdAt, n.language, timezone)} • {n.exactTime}{" "}
-                                • {formatRelative(n.createdAt, n.language)}
                               </span>
-                            </span>
-                          </button>
+                            </button>
+                            {/* Independent per-row delete (never touches other rows). */}
+                            <button
+                              type="button"
+                              data-testid={`delete-${n.id}`}
+                              aria-label={t.delete}
+                              onClick={() => void onDeleteItem(n)}
+                              className="absolute top-3 right-2 flex size-7 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-destructive"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>

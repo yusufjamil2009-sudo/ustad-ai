@@ -63,6 +63,10 @@ export type NotificationType =
   | "event_reminder_2d"
   | "event_reminder_1d"
   | "event_live"
+  | "event_ending_soon"
+  | "event_closed"
+  | "new_feature"
+  | "important_update"
   | "system";
 
 export const CATEGORY_OF: Record<NotificationType, NotificationCategory> = {
@@ -96,6 +100,10 @@ export const CATEGORY_OF: Record<NotificationType, NotificationCategory> = {
   event_reminder_2d: "events",
   event_reminder_1d: "events",
   event_live: "events",
+  event_ending_soon: "events",
+  event_closed: "events",
+  new_feature: "system",
+  important_update: "system",
   system: "system",
 };
 
@@ -131,6 +139,10 @@ export const ACTION_PATH_OF: Record<NotificationType, string> = {
   event_reminder_2d: "/events",
   event_reminder_1d: "/events",
   event_live: "/events",
+  event_ending_soon: "/events",
+  event_closed: "/events",
+  new_feature: "/",
+  important_update: "/",
   system: "/",
 };
 
@@ -165,6 +177,10 @@ export const ICON_OF: Record<NotificationType, string> = {
   event_reminder_2d: "🔔",
   event_reminder_1d: "🚨",
   event_live: "🔴",
+  event_ending_soon: "⏳",
+  event_closed: "🏁",
+  new_feature: "🆕",
+  important_update: "⚠️",
   system: "ℹ️",
 };
 
@@ -340,6 +356,19 @@ export type UiStrings = {
   entry: string;
   reward: string;
   free: string;
+  /** Detail view chrome */
+  back: string;
+  viewNow: string;
+  delete: string;
+  what: string;
+  when: string;
+  howToPlay: string;
+  requirements: string;
+  duration: string;
+  howToJoin: string;
+  notes: string;
+  rules: string;
+  noDetails: string;
 };
 
 export const UI_TEXT: Record<Language, UiStrings> = {
@@ -370,6 +399,18 @@ export const UI_TEXT: Record<Language, UiStrings> = {
     entry: "Entry",
     reward: "Reward",
     free: "Free",
+    back: "Back",
+    viewNow: "Open",
+    delete: "Delete",
+    what: "What is it?",
+    when: "Date & time",
+    howToPlay: "How to play",
+    requirements: "Requirements",
+    duration: "Duration",
+    howToJoin: "How to join",
+    notes: "Notes",
+    rules: "Rules",
+    noDetails: "No extra details are available for this notification.",
   },
   hinglish: {
     notifications: "Notifications",
@@ -398,6 +439,18 @@ export const UI_TEXT: Record<Language, UiStrings> = {
     entry: "Entry",
     reward: "Reward",
     free: "Free",
+    back: "Wapas",
+    viewNow: "Kholen",
+    delete: "Delete karein",
+    what: "Kya hai?",
+    when: "Date & time",
+    howToPlay: "Kaise khelein",
+    requirements: "Requirements",
+    duration: "Duration",
+    howToJoin: "Kaise join karein",
+    notes: "Notes",
+    rules: "Rules",
+    noDetails: "Is notification ke liye koi extra detail nahi hai.",
   },
   hindi: {
     notifications: "सूचनाएँ",
@@ -426,6 +479,18 @@ export const UI_TEXT: Record<Language, UiStrings> = {
     entry: "एंट्री",
     reward: "इनाम",
     free: "निःशुल्क",
+    back: "वापस",
+    viewNow: "खोलें",
+    delete: "हटाएँ",
+    what: "यह क्या है?",
+    when: "दिनांक और समय",
+    howToPlay: "कैसे खेलें",
+    requirements: "आवश्यकताएँ",
+    duration: "अवधि",
+    howToJoin: "कैसे शामिल हों",
+    notes: "नोट",
+    rules: "नियम",
+    noDetails: "इस सूचना के लिए कोई अतिरिक्त विवरण उपलब्ध नहीं है।",
   },
 };
 
@@ -450,6 +515,11 @@ export type NotificationVars = {
   days?: number;
   startAt?: string;
   count?: number;
+  entryFee?: number;
+  winReward?: number;
+  questionCount?: number;
+  requiredCorrect?: number;
+  eventType?: string;
 };
 
 export type RenderedNotification = { title: string; message: string };
@@ -867,6 +937,62 @@ const TEMPLATES: Record<NotificationType, Record<Language, Template>> = {
       message: `${v.eventName ?? "इवेंट"} अब शुरू हो गया है।`,
     }),
   },
+  event_ending_soon: {
+    english: (v) => ({
+      title: "Event Ending Soon",
+      message: `${v.eventName ?? "The event"} is ending soon. Play now before it closes.`,
+    }),
+    hinglish: (v) => ({
+      title: "Event Khatam hone wala hai",
+      message: `${v.eventName ?? "Event"} ending hone wala hai. Band hone se pehle khelein.`,
+    }),
+    hindi: (v) => ({
+      title: "इवेंट जल्द समाप्त होगा",
+      message: `${v.eventName ?? "इवेंट"} जल्द समाप्त होने वाला है। बंद होने से पहले खेलें।`,
+    }),
+  },
+  event_closed: {
+    english: (v) => ({
+      title: "Event Closed",
+      message: `${v.eventName ?? "The event"} has closed. Results are on your Profile.`,
+    }),
+    hinglish: (v) => ({
+      title: "Event Band hua",
+      message: `${v.eventName ?? "Event"} band ho gaya. Results aapke Profile par hain.`,
+    }),
+    hindi: (v) => ({
+      title: "इवेंट समाप्त हुआ",
+      message: `${v.eventName ?? "इवेंट"} समाप्त हो गया। परिणाम आपकी प्रोफ़ाइल पर हैं।`,
+    }),
+  },
+  new_feature: {
+    english: (v) => ({
+      title: "New Feature",
+      message: v.featureName ?? "Try a new USTAD AI feature.",
+    }),
+    hinglish: (v) => ({
+      title: "Naya Feature",
+      message: v.featureName ?? "Naya USTAD AI feature try karein.",
+    }),
+    hindi: (v) => ({
+      title: "नया फ़ीचर",
+      message: v.featureName ?? "नया USTAD AI फ़ीचर आज़माएँ।",
+    }),
+  },
+  important_update: {
+    english: (v) => ({
+      title: "Important Update",
+      message: v.source ?? "Please review this update.",
+    }),
+    hinglish: (v) => ({
+      title: "Zaroori Update",
+      message: v.source ?? "Ye update zaroor padhein.",
+    }),
+    hindi: (v) => ({
+      title: "महत्वपूर्ण अपडेट",
+      message: v.source ?? "कृपया इस अपडेट को पढ़ें।",
+    }),
+  },
   system: {
     english: (v) => ({ title: "USTAD AI", message: v.source ?? "" }),
     hinglish: (v) => ({ title: "USTAD AI", message: v.source ?? "" }),
@@ -942,4 +1068,34 @@ export function dueReminders(startIso: string, now: Date = new Date()): Reminder
     }
   }
   return due;
+}
+
+/* ------------------------------------------------------------------ */
+/* End-phase milestones (ending-soon / closed) — pure, tested          */
+/* ------------------------------------------------------------------ */
+
+export type EndReminderKind = "ending_soon" | "closed";
+
+/** How long before an event's end the "ending soon" notice becomes due. */
+export const ENDING_SOON_LEAD_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Which end-phase milestone is due for a running/finished event.
+ *   • `ending_soon` once the event is live and fewer than ENDING_SOON_LEAD_MS
+ *     remain before its scheduled end.
+ *   • `closed` once `now` has passed the scheduled end.
+ * Returns [] before the event starts (the start-phase reminders own that).
+ */
+export function dueEndReminders(
+  startIso: string,
+  endIso: string,
+  now: Date = new Date(),
+): EndReminderKind[] {
+  const t = now.getTime();
+  const start = Date.parse(startIso);
+  const end = Date.parse(endIso);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+  if (t >= end) return ["closed"];
+  if (t >= start && end - t <= ENDING_SOON_LEAD_MS) return ["ending_soon"];
+  return [];
 }

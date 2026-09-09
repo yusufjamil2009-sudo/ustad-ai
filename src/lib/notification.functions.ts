@@ -38,6 +38,16 @@ export const notificationMarkAllReadFn = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => d)
   .handler(async ({ data: d }) => notifications.markAllRead(d.token));
 
+/** Delete ONE notification (independent of every other row). */
+export const notificationDeleteFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { token: string; id: string }) => d)
+  .handler(async ({ data: d }) => notifications.deleteNotification({ token: d.token, id: d.id }));
+
+/** Full, structured detail for one notification (opens marked-as-read). */
+export const notificationDetailFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { token: string; id: string }) => d)
+  .handler(async ({ data: d }) => notifications.notificationDetail({ token: d.token, id: d.id }));
+
 /** Upcoming events from the existing Master Event Engine. */
 export const upcomingEventsFn = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => d)
