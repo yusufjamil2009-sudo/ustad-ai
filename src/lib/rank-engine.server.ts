@@ -33,14 +33,22 @@ import {
   cycleFromStart,
   formatCoins,
   previousCycle,
+  RANK_REWARD_PAYABLE,
+  istDate,
+  isRankRewardPaid,
+  isRankRewardPayable,
   rankContextLine,
   rankEntries,
+  rankRewardClaimStatus,
+  rankRewardOutcomeStatus,
   rankRewardRef,
   rewardForRank,
+  weeklyRankCertificateRef,
   type CupEvent,
   type LeaderboardEntry,
   type RankCategory,
   type RankCycle,
+  type RankRewardStatus,
 } from "./rank-spec";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -345,7 +353,10 @@ async function isSettled(cycle: RankCycle): Promise<boolean> {
 
 /**
  * Settle every finished cycle that has not been settled yet (bounded look-back
- * so a long-idle app never replays months of history).
+ * so a long-idle app never replays months of history), then reconcile any
+ * award rows that were claimed but whose coin credit never landed (pending /
+ * failed, and stale processing) — so a transient coin-credit failure is
+ * retried instead of silently losing the reward.
  */
 export async function settleDueCycles(now: Date = new Date()): Promise<string[]> {
   const settled: string[] = [];
@@ -354,7 +365,51 @@ export async function settleDueCycles(now: Date = new Date()): Promise<string[]>
     if (await settleCycle(cycle)) settled.push(cycle.start);
     cycle = previousCycle(cycle);
   }
+  await reconcileUnpaidAwards(now);
   return settled;
+}
+
+/**
+ * Retry rewards that were never actually paid. A row is owed coins when:
+ *   • its status is `pending` or `failed`, or
+ *   • it is `processing` but stale (a process crashed between claim and the
+ *     coin credit) — those are downgraded to `failed` so they become payable.
+ * Only ended cycles are considered (a running cycle must never be paid).
+ */
+async function reconcileUnpaidAwards(now: Date = new Date()): Promise<void> {
+  try {
+    const staleCutoff = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+    // Recover crashed `processing` rows first.
+    await sdb()
+      .from("ustad_rank_awards")
+      .update({ status: "failed", updated_at: new Date().toISOString() })
+      .eq("status", "processing")
+      .lt("updated_at", staleCutoff);
+
+    const { data } = await sdb()
+      .from("ustad_rank_awards")
+      .select("*")
+      .in("status", ["pending", "failed"])
+      .lt("cycle_end", istDate(now))
+      .limit(200);
+    const rows = (data as Row[]) ?? [];
+    for (const row of rows) {
+      const cycle = cycleFromStart(String(row["cycle_start"]));
+      const entry: LeaderboardEntry = {
+        rank: Number(row["rank"]),
+        guestId: String(row["guest_id"]),
+        profileName: String(row["profile_name"] ?? ""),
+        cycleCups: Number(row["cup_count"] ?? 0),
+        totalCups: Number(row["cup_count"] ?? 0),
+        firstCupAt: "",
+      };
+      await settleRankAward(cycle, row["category"] as RankCategory, entry, {
+        coins: Number(row["coins"] ?? rewardForRank(entry.rank)),
+      });
+    }
+  } catch {
+    /* reconciliation is best-effort; the next read/settle retries it */
+  }
 }
 
 /** Settle ONE finished cycle. Returns true when this call did the settling. */
@@ -373,7 +428,7 @@ export async function settleCycle(cycle: RankCycle): Promise<boolean> {
       3,
     );
     summary[category] = top.map((t) => ({ rank: t.rank, guestId: t.guestId, cups: t.cycleCups }));
-    for (const entry of top) await awardRank(cycle, category, entry);
+    for (const entry of top) await settleRankAward(cycle, category, entry);
   }
 
   try {
@@ -386,34 +441,161 @@ export async function settleCycle(cycle: RankCycle): Promise<boolean> {
   return true;
 }
 
-async function awardRank(
+async function awardRow(
+  cycle: RankCycle,
+  category: RankCategory,
+  guestId: string,
+): Promise<Row | null> {
+  const { data } = await sdb()
+    .from("ustad_rank_awards")
+    .select("*")
+    .eq("cycle_start", cycle.start)
+    .eq("category", category)
+    .eq("guest_id", guestId)
+    .maybeSingle();
+  return (data as Row) ?? null;
+}
+
+/**
+ * Compare-and-set a payable award row to `processing`. Only the caller whose
+ * UPDATE matches a row that is still `pending`/`failed` proceeds to credit
+ * coins — so two concurrent settlements can never both pay, and a row that is
+ * already `paid` (or currently being processed by someone else) is skipped.
+ */
+async function claimAwardForPayment(row: Row): Promise<boolean> {
+  const { data } = await sdb()
+    .from("ustad_rank_awards")
+    .update({ status: rankRewardClaimStatus(), updated_at: new Date().toISOString() })
+    .eq("id", row["id"])
+    .in("status", RANK_REWARD_PAYABLE)
+    .select("id")
+    .maybeSingle();
+  return Boolean(data);
+}
+
+async function markAward(row: Row, status: RankRewardStatus, patch: Row): Promise<void> {
+  try {
+    await sdb()
+      .from("ustad_rank_awards")
+      .update({ status, updated_at: new Date().toISOString(), ...patch })
+      .eq("id", row["id"]);
+  } catch {
+    /* bookkeeping only — never throws into a settlement loop */
+  }
+}
+
+async function issueRankCertificate(input: {
+  guestId: string;
+  cycle: RankCycle;
+  category: RankCategory;
+  rank: number;
+  cycleCups: number;
+  coins: number;
+}): Promise<string | null> {
+  try {
+    const cert = await issueStandaloneCertificate({
+      guestId: input.guestId,
+      type: "weekly_rank",
+      reference: weeklyRankCertificateRef(input.cycle.start, input.category, input.rank),
+      awardTitle: `Weekly Rank #${input.rank} — ${CATEGORY_LABEL[input.category]}`,
+      eventName: `USTAD Weekly Leaderboard (${input.cycle.start} → ${input.cycle.end})`,
+      tournament: "USTAD AI Weekly Leaderboard",
+      facts: [
+        { label: "Category", value: CATEGORY_LABEL[input.category] },
+        { label: "Rank", value: `#${input.rank}` },
+        { label: "Verified Cups", value: String(input.cycleCups) },
+        { label: "Reward", value: `${formatCoins(input.coins)} USTAD Coins` },
+      ],
+    });
+    return cert;
+  } catch {
+    /* certificate failure must never void the settled rank */
+    return null;
+  }
+}
+
+/**
+ * Ensure ONE weekly rank reward is fully paid — safely retryable.
+ *
+ * Idempotency model (Issue: rank reward can be lost / double-paid):
+ *   • The award row is the claim. `pending`/`failed` → payable; `paid` → done
+ *     forever; `processing` → another attempt owns it.
+ *   • Coins are credited ONLY by the attempt that wins the CAS claim, and the
+ *     credit itself is replay-safe at the ledger (rankRewardRef), so a lost
+ *     credit can never be silently skipped and a paid one can never be paid
+ *     twice.
+ *   • On success the row moves to `paid` with its transaction id + certificate.
+ *   • On failure the row moves to `failed` and stays retryable.
+ *
+ * A notification is raised only on the pending→paid transition.
+ */
+async function settleRankAward(
   cycle: RankCycle,
   category: RankCategory,
   entry: LeaderboardEntry,
+  opts: { coins?: number } = {},
 ): Promise<void> {
-  const coins = rewardForRank(entry.rank);
+  const coins = opts.coins ?? rewardForRank(entry.rank);
   if (coins <= 0) return;
 
-  // 1. Claim the award row. The unique index is the real duplicate guard.
-  const { data: inserted, error } = await sdb()
-    .from("ustad_rank_awards")
-    .insert({
-      cycle_start: cycle.start,
-      cycle_end: cycle.end,
-      category,
-      guest_id: entry.guestId,
-      profile_name: entry.profileName,
-      rank: entry.rank,
-      cup_count: entry.cycleCups,
-      coins,
-      cup_awarded: cupForRank(entry.rank),
-    })
-    .select()
-    .maybeSingle();
-  if (error || !inserted) return; // already settled for this guest+category
+  // 1. Ensure the award row exists (unique index is the row-level guard).
+  let row = await awardRow(cycle, category, entry.guestId);
+  if (!row) {
+    const { data: inserted, error } = await sdb()
+      .from("ustad_rank_awards")
+      .insert({
+        cycle_start: cycle.start,
+        cycle_end: cycle.end,
+        category,
+        guest_id: entry.guestId,
+        profile_name: entry.profileName,
+        rank: entry.rank,
+        cup_count: entry.cycleCups,
+        coins,
+        cup_awarded: cupForRank(entry.rank),
+        status: "pending",
+      })
+      .select()
+      .maybeSingle();
+    if (error || !inserted) {
+      // A concurrent settler already inserted it — reload it.
+      row = await awardRow(cycle, category, entry.guestId);
+      if (!row) return;
+    } else {
+      row = inserted as Row;
+    }
+  }
 
-  // 2. Coins — idempotent at the ledger level as well.
+  const status = String(row["status"] ?? "pending") as RankRewardStatus;
+
+  // 2. Already fully paid — never pay again.
+  if (isRankRewardPaid(status)) {
+    // Ensure the certificate exists even if a prior run paid but crashed before
+    // issuing it (idempotent by reference).
+    const cert = await issueRankCertificate({
+      guestId: entry.guestId,
+      cycle,
+      category,
+      rank: entry.rank,
+      cycleCups: Number(row["cup_count"] ?? entry.cycleCups),
+      coins,
+    });
+    if (cert && !row["certificate_id"]) {
+      await markAward(row, "paid", { certificate_id: cert });
+    }
+    return;
+  }
+
+  // 3. Not payable (someone else is processing) → skip this round.
+  if (!isRankRewardPayable(status)) return;
+
+  // 4. Claim: pending|failed → processing. Losing the race means someone else
+  //    is already paying this reward right now — do nothing.
+  if (!(await claimAwardForPayment(row))) return;
+
+  // 5. Credit coins (replay-safe at the ledger).
   let transactionId: string | null = null;
+  let paid = false;
   try {
     const res = await applyCoins({
       guestId: entry.guestId,
@@ -424,45 +606,30 @@ async function awardRank(
       note: `Weekly Rank #${entry.rank} — ${CATEGORY_LABEL[category]}`,
     });
     transactionId = res.transactionId;
+    paid = true;
   } catch {
-    /* the award row stays, but we never claim a credit that did not happen */
+    /* credit failed → mark failed, keep retryable, never claim success */
   }
 
-  // 3. Rank certificate for all three places.
-  let certificateId: string | null = null;
-  try {
-    const cert = await issueStandaloneCertificate({
-      guestId: entry.guestId,
-      type: "weekly_rank",
-      reference: `${cycle.start}:${category}:${entry.rank}`,
-      awardTitle: `Weekly Rank #${entry.rank} — ${CATEGORY_LABEL[category]}`,
-      eventName: `USTAD Weekly Leaderboard (${cycle.start} → ${cycle.end})`,
-      tournament: "USTAD AI Weekly Leaderboard",
-      facts: [
-        { label: "Category", value: CATEGORY_LABEL[category] },
-        { label: "Rank", value: `#${entry.rank}` },
-        { label: "Verified Cups", value: String(entry.cycleCups) },
-        { label: "Reward", value: `${formatCoins(coins)} USTAD Coins` },
-      ],
-    });
-    certificateId = cert;
-  } catch {
-    /* certificate failure must never void the settled rank */
+  if (!paid) {
+    await markAward(row, rankRewardOutcomeStatus(false), {});
+    return;
   }
 
-  try {
-    await sdb()
-      .from("ustad_rank_awards")
-      .update({
-        transaction_id: transactionId,
-        certificate_id: certificateId,
-      })
-      .eq("cycle_start", cycle.start)
-      .eq("category", category)
-      .eq("guest_id", entry.guestId);
-  } catch {
-    /* bookkeeping only */
-  }
+  // 6. Success: persist paid + audit fields, then issue the certificate and
+  //    notify (each idempotent), so a retry after success is a no-op.
+  const certificateId = await issueRankCertificate({
+    guestId: entry.guestId,
+    cycle,
+    category,
+    rank: entry.rank,
+    cycleCups: Number(row["cup_count"] ?? entry.cycleCups),
+    coins,
+  });
+  await markAward(row, rankRewardOutcomeStatus(true), {
+    transaction_id: transactionId,
+    certificate_id: certificateId,
+  });
 
   await notifyGuest(
     entry.guestId,

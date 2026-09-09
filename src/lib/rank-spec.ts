@@ -7,13 +7,7 @@
  */
 
 export type RankCategory =
-  | "most_cups"
-  | "mega"
-  | "grandmaster"
-  | "ultra_grandmaster"
-  | "mystery"
-  | "god_master"
-  | "event";
+  "most_cups" | "mega" | "grandmaster" | "ultra_grandmaster" | "mystery" | "god_master" | "event";
 
 export const RANK_CATEGORIES: readonly RankCategory[] = [
   "most_cups",
@@ -181,6 +175,23 @@ export function rankRewardRef(cycleStart: string, category: RankCategory, rank: 
 }
 
 /**
+ * Deterministic identity of a weekly-rank CERTIFICATE. Backed by the unique
+ * (guest_id, reference_key) index, so generating a certificate for the same
+ * week + category + rank is idempotent and can never duplicate — and an old
+ * week is found just like this week's (no "latest N" window).
+ */
+export function weeklyRankCertificateRef(
+  cycleStart: string,
+  category: RankCategory,
+  rank: number,
+): string {
+  // Keep the historical reference shape (`{cycleStart}:{category}:{rank}`) that
+  // existing weekly-rank certificates already store in metadata.reference, so
+  // old certificates are matched exactly (never duplicated).
+  return `${cycleStart}:${category}:${rank}`;
+}
+
+/**
  * One authoritative block for the USTAD AI chat context. Returns "" when the
  * user holds no rank, so the model can never invent a leaderboard position.
  */
@@ -193,4 +204,47 @@ export function rankContextLine(
       `- Rank #${a.rank} in ${CATEGORY_LABEL[a.category]} for the week starting ${a.cycleStart} (${formatCoins(a.coins)} USTAD Coins)`,
   );
   return `USTAD AI weekly leaderboard records for this user (authoritative — never invent a rank, a name or a cup count):\n${lines.join("\n")}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Weekly reward settlement state machine (Issue: atomicity/retry)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lifecycle of ONE weekly-rank reward row.
+ *
+ *   pending     → row claimed, coins not yet credited (the reward MUST NOT be
+ *                 considered settled until paid).
+ *   processing  → a settlement attempt has claimed the row (compare-and-set)
+ *                 and is crediting coins. A concurrent attempt must skip.
+ *   paid        → coins successfully credited AND audit fields written. A
+ *                 repeat settlement MUST never pay again.
+ *   failed      → the coin credit failed after claim; the row stays retryable.
+ *
+ * Only `pending` and `failed` are payable; `processing`/`paid` must never be
+ * paid. This is pure so the exact-once/retry rules are unit-testable without a
+ * database.
+ */
+export type RankRewardStatus = "pending" | "processing" | "paid" | "failed";
+
+export const RANK_REWARD_PAYABLE: readonly RankRewardStatus[] = ["pending", "failed"];
+
+/** True when a stored row is owed coins and may be claimed for payment. */
+export function isRankRewardPayable(status: RankRewardStatus | null | undefined): boolean {
+  return !!status && (status === "pending" || status === "failed");
+}
+
+/** The status a claim moves an owed row to so only ONE attempt proceeds. */
+export function rankRewardClaimStatus(): Extract<RankRewardStatus, "processing"> {
+  return "processing";
+}
+
+/** The persisted status that reflects whether the coin credit succeeded. */
+export function rankRewardOutcomeStatus(succeeded: boolean): RankRewardStatus {
+  return succeeded ? "paid" : "failed";
+}
+
+/** True once a reward is fully settled and must never be paid again. */
+export function isRankRewardPaid(status: RankRewardStatus | null | undefined): boolean {
+  return status === "paid";
 }

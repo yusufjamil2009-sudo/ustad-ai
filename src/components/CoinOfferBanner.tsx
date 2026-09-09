@@ -1,15 +1,21 @@
 /**
- * 🔥 GLOBAL COIN OFFER banner (read-only mirror).
+ * 🔥 GLOBAL COIN OFFER banner (read-only mirror + navigation).
  *
  * The client only READS a banner-safe view of the current weekly offer via
  * `coinOfferBannerFn`. All schedule/discount decisions are server-side; the
  * server-fn also fires the idempotent per-guest "live" notification the first
- * time a live offer is surfaced. Tapping the banner deep-links to the existing
- * /shop page (it never creates a duplicate page).
+ * time a live offer is surfaced.
+ *
+ * The ENTIRE banner is a real link to the EXISTING /shop route (no new shop
+ * page). It is keyboard-accessible as a normal anchor, has no nested links or
+ * buttons, and its copy follows the user's Settings language (returned by the
+ * server-fn) rather than being hard-coded English.
  */
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Flame } from "lucide-react";
 import { coinOfferBannerFn } from "@/lib/coin-offer.functions";
+import { UI_TEXT, fillTokens, type Language } from "@/lib/notification-spec";
 
 type BannerState = {
   available: boolean;
@@ -19,7 +25,7 @@ type BannerState = {
   discountPct?: number;
   startIso?: string;
   endIso?: string;
-  cycle?: { start: string; end: string };
+  language?: Language;
 };
 
 const IST_TZ = "Asia/Kolkata";
@@ -77,14 +83,28 @@ export function CoinOfferBanner({ token }: { token: string }) {
   if (!checked || !state?.available) return null;
 
   const pct = state.discountPct ?? 0;
+  const language: Language = state.language ?? "english";
+  const t = UI_TEXT[language];
+
+  const liveBody = `${fillTokens(t.offerLiveBodyLead, { pct })} ${fillTokens(t.offerLiveBodyEnd, {
+    time: istClock(state.endIso),
+  })}`;
+  const comingBody = `${fillTokens(t.offerComingBodyLead, { pct })} ${fillTokens(
+    t.offerComingBodyBetween,
+    { day: istDay(state.startIso), start: istClock(state.startIso), end: istClock(state.endIso) },
+  )}`;
 
   return (
-    <div
+    <Link
+      to="/shop"
       data-testid="coin-offer-banner"
-      className={`mb-6 flex flex-col gap-1 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+      aria-label={
+        state.live ? `${t.offerLiveTitle} — ${pct}% OFF` : `${t.offerComingTitle} — ${pct}% OFF`
+      }
+      className={`mb-6 flex flex-col gap-1 rounded-xl border px-4 py-3 no-underline transition-colors hover:border-border/80 sm:flex-row sm:items-center sm:justify-between ${
         state.live
-          ? "border-amber-400/50 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/15"
-          : "border-border/60 bg-card/60"
+          ? "border-amber-400/50 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/15 hover:bg-amber-500/20"
+          : "border-border/60 bg-card/60 hover:bg-card"
       }`}
     >
       <div className="flex items-start gap-3">
@@ -95,31 +115,16 @@ export function CoinOfferBanner({ token }: { token: string }) {
           <Flame className="size-5" />
         </span>
         <div>
-          {state.live ? (
-            <>
-              <p className="text-sm font-bold text-amber-600">
-                GLOBAL COIN OFFER LIVE — {pct}% OFF
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {pct}% OFF on every eligible USTAD Coin purchase. Hurry — offer ends today at{" "}
-                {istClock(state.endIso)}.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-bold">Special Coin Offer — Coming Soon</p>
-              <p className="text-xs text-muted-foreground">
-                This week: up to {pct}% OFF on eligible USTAD Coin purchases on{" "}
-                {istDay(state.startIso)} between {istClock(state.startIso)} and{" "}
-                {istClock(state.endIso)}.
-              </p>
-            </>
-          )}
+          <p className={state.live ? "text-sm font-bold text-amber-600" : "text-sm font-bold"}>
+            {t.offerLiveTitle}
+            <span className="font-semibold"> — {pct}% OFF</span>
+          </p>
+          <p className="text-xs text-muted-foreground">{state.live ? liveBody : comingBody}</p>
         </div>
       </div>
       <span className="mt-2 shrink-0 self-start rounded-full bg-foreground/5 px-3 py-1 text-[11px] font-semibold text-muted-foreground sm:mt-0 sm:self-center">
-        Save on coins across the whole app
+        {t.offerChip}
       </span>
-    </div>
+    </Link>
   );
 }

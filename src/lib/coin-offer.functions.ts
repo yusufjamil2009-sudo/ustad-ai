@@ -8,6 +8,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireGuest } from "./guest.server";
+import { guestLocale } from "./notification.server";
 import * as offer from "./coin-offer.server";
 
 /**
@@ -18,9 +19,10 @@ export const coinOfferBannerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => d)
   .handler(async ({ data: d }) => {
     const guestId = await requireGuest(d.token);
+    const locale = await guestLocale(guestId);
     const now = new Date();
     const off = await offer.offerForCycle(offer.currentCycle(now)).catch(() => null);
-    if (!off) return { available: false, reason: "no_offer" };
+    if (!off) return { available: false, reason: "no_offer", language: locale.language };
 
     const live = offer.isOfferLive(off, now);
     if (live) await offer.offerNotificationsForGuest(guestId).catch(() => {});
@@ -34,5 +36,6 @@ export const coinOfferBannerFn = createServerFn({ method: "POST" })
       startIso: off.startIso,
       endIso: off.endIso,
       cycle: { start: off.cycle.start, end: off.cycle.end },
+      language: locale.language,
     };
   });

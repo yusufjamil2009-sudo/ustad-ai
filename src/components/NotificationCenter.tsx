@@ -306,7 +306,7 @@ export function NotificationCenter() {
                 <button
                   type="button"
                   data-testid="notification-close"
-                  aria-label="Close"
+                  aria-label={t.close}
                   onClick={() => setOpen(false)}
                   className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60"
                 >

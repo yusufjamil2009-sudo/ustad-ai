@@ -338,14 +338,18 @@ async function findCertificateByReference(
   type: CertificateType,
   reference: string,
 ): Promise<Row | null> {
+  // Dedupe fix: the stable weekly-rank reference is stored in its own indexed
+  // column `reference_key` (unique per guest). Lookup is a single indexed
+  // equality — it NEVER scans "the latest N rows", which is what allowed
+  // duplicate weekly certificates once a user passed the old lookup window.
   const { data } = await sdb()
     .from("ustad_certificates")
     .select("*")
     .eq("guest_id", guestId)
     .eq("certificate_type", type)
-    .limit(200);
-  const rows = (data ?? []) as Row[];
-  return rows.find((r) => ((r["metadata"] as Row) ?? {})["reference"] === reference) ?? null;
+    .eq("reference_key", reference)
+    .maybeSingle();
+  return (data as Row) ?? null;
 }
 
 export type StandaloneCertificateInput = {
@@ -416,6 +420,8 @@ export async function issueStandaloneCertificate(
         facts: Array.isArray(input.facts) ? input.facts : [],
         engineVersion: "record.v1",
       },
+      // The indexed dedupe key (unique via ustad_certificates_reference_uidx).
+      reference_key: input.reference,
     })
     .select()
     .maybeSingle();

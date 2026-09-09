@@ -187,6 +187,21 @@ test("UI chrome is translated for every language and every filter chip", () => {
       "markAllRead",
       "all",
       "unread",
+      "close",
+      "loading",
+      "noLongerAvailable",
+      "offerChip",
+      "offerLiveTitle",
+      "offerComingTitle",
+      "what",
+      "when",
+      "howToPlay",
+      "requirements",
+      "duration",
+      "howToJoin",
+      "notes",
+      "rules",
+      "noDetails",
     ]) {
       assert.ok((t as Record<string, string>)[key]?.length, `${lang}.${key} missing`);
     }
@@ -197,6 +212,11 @@ test("UI chrome is translated for every language and every filter chip", () => {
   // Hindi chrome must not be an English copy.
   assert.notEqual(UI_TEXT.hindi.notifications, UI_TEXT.english.notifications);
   assert.notEqual(UI_TEXT.hindi.recentActivity, UI_TEXT.english.recentActivity);
+  // The newly added notification/offer UI strings must not be English-only.
+  assert.notEqual(UI_TEXT.hindi.offerChip, UI_TEXT.english.offerChip);
+  assert.notEqual(UI_TEXT.hindi.close, UI_TEXT.english.close);
+  assert.notEqual(UI_TEXT.hindi.noLongerAvailable, UI_TEXT.english.noLongerAvailable);
+  assert.notEqual(UI_TEXT.hinglish.offerChip, UI_TEXT.english.offerChip);
 });
 
 /* ------------------------------------------------------------------ */

@@ -100,9 +100,9 @@ function NotificationDetailPage() {
       <AppShell>
         <PageHeader title="Notification" />
         <div className="flex flex-col items-start gap-4 px-4">
-          <p className="text-sm text-muted-foreground">This notification is no longer available.</p>
+          <p className="text-sm text-muted-foreground">{t.noLongerAvailable}</p>
           <Link to="/">
-            <Button variant="outline">Back</Button>
+            <Button variant="outline">{t.back}</Button>
           </Link>
         </div>
       </AppShell>
@@ -147,7 +147,7 @@ function NotificationDetailPage() {
 
       {!detail ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <BellRing className="size-4 animate-pulse" /> Loading…
+          <BellRing className="size-4 animate-pulse" /> {t.loading}
         </div>
       ) : (
         <div className="mx-auto max-w-2xl px-4 pb-10">

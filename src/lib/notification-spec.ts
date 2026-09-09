@@ -369,7 +369,23 @@ export type UiStrings = {
   notes: string;
   rules: string;
   noDetails: string;
+  /** Offer banner copy (localized, substituted at call site). */
+  offerLiveTitle: string;
+  offerLiveBodyEnd: string;
+  offerLiveBodyLead: string;
+  offerComingTitle: string;
+  offerComingBodyLead: string;
+  offerComingBodyBetween: string;
+  offerChip: string;
+  close: string;
+  loading: string;
+  noLongerAvailable: string;
 };
+
+/** Substitute {token} placeholders in a localized string with the given values. */
+export function fillTokens(template: string, tokens: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (m, key) => (key in tokens ? String(tokens[key]) : m));
+}
 
 export const UI_TEXT: Record<Language, UiStrings> = {
   english: {
@@ -411,6 +427,16 @@ export const UI_TEXT: Record<Language, UiStrings> = {
     notes: "Notes",
     rules: "Rules",
     noDetails: "No extra details are available for this notification.",
+    offerLiveTitle: "GLOBAL COIN OFFER IS LIVE",
+    offerLiveBodyLead: "{pct}% OFF on every eligible USTAD Coin purchase.",
+    offerLiveBodyEnd: "Hurry — the offer ends today at {time}.",
+    offerComingTitle: "SPECIAL COIN OFFER — COMING SOON",
+    offerComingBodyLead: "Up to {pct}% OFF on eligible USTAD Coin purchases",
+    offerComingBodyBetween: "on {day} between {start} and {end}.",
+    offerChip: "Save on coins across the whole app",
+    close: "Close",
+    loading: "Loading…",
+    noLongerAvailable: "This notification is no longer available.",
   },
   hinglish: {
     notifications: "Notifications",
@@ -451,6 +477,16 @@ export const UI_TEXT: Record<Language, UiStrings> = {
     notes: "Notes",
     rules: "Rules",
     noDetails: "Is notification ke liye koi extra detail nahi hai.",
+    offerLiveTitle: "GLOBAL COIN OFFER LIVE HAI",
+    offerLiveBodyLead: "{pct}% OFF saare eligible USTAD Coin purchases par.",
+    offerLiveBodyEnd: "Jaldi karo — offer aaj {time} par khatam hoga.",
+    offerComingTitle: "SPECIAL COIN OFFER — AANE WALA HAI",
+    offerComingBodyLead: "{pct}% tak OFF eligible USTAD Coin purchases par",
+    offerComingBodyBetween: "{day} ko {start} se {end} tak.",
+    offerChip: "Poore app mein coins par bachat",
+    close: "Band karein",
+    loading: "Loading…",
+    noLongerAvailable: "Ye notification ab available nahi hai.",
   },
   hindi: {
     notifications: "सूचनाएँ",
@@ -491,6 +527,16 @@ export const UI_TEXT: Record<Language, UiStrings> = {
     notes: "नोट",
     rules: "नियम",
     noDetails: "इस सूचना के लिए कोई अतिरिक्त विवरण उपलब्ध नहीं है।",
+    offerLiveTitle: "ग्लोबल सिक्का ऑफ़र लाइव है",
+    offerLiveBodyLead: "{pct}% की छूट सभी eligible USTAD Coin खरीद पर।",
+    offerLiveBodyEnd: "जल्दी करें — ऑफ़र आज {time} पर समाप्त होगा।",
+    offerComingTitle: "विशेष सिक्का ऑफ़र — आने वाला है",
+    offerComingBodyLead: "{pct}% तक की छूट eligible USTAD Coin खरीद पर",
+    offerComingBodyBetween: "{day} को {start} से {end} तक।",
+    offerChip: "पूरे ऐप में सिक्कों पर बचत",
+    close: "बंद करें",
+    loading: "लोड हो रहा है…",
+    noLongerAvailable: "यह सूचना अब उपलब्ध नहीं है।",
   },
 };
 
