@@ -19,6 +19,7 @@ import { answerChrono, chronoContext, needsChrono } from "./chrono-engine";
 import { examContext } from "./exam-engine.server";
 import { achievementContext } from "./trophy-engine.server";
 import { certificateContext } from "./certificate-engine.server";
+import { rankChatContext } from "./rank-engine.server";
 import { masterEventContext } from "./master-event-engine.server";
 import { walletContext } from "./wallet.server";
 import { notificationContext } from "./notification.server";
@@ -192,14 +193,18 @@ export async function sendMessage(input: {
   /* issued certificates — authoritative ids and dates, never guessed */
   const certificateFacts = await certificateContext(guestId).catch(() => "");
 
+  /* weekly leaderboard — live standing, verified cups and settled ranks */
+  const leaderboardFacts = await rankChatContext(guestId).catch(() => "");
+
   /* master event participation — verified results only, never guessed */
   const eventFacts = await masterEventContext(guestId).catch(() => "");
 
   /* weekly Mystery + GOD MASTER tournaments — verified attempts only */
-  const tournamentFacts = await (await import("./tournament-engine.server"))
+  const tournamentFacts = await (
+    await import("./tournament-engine.server")
+  )
     .tournamentContext(guestId)
     .catch(() => "");
-
 
   /* USTAD Coin wallet — the authoritative balance, never guessed */
   const walletFacts = await walletContext(guestId).catch(() => "");
@@ -401,6 +406,7 @@ export async function sendMessage(input: {
       ...(examFacts ? [examFacts] : []),
       ...(achievementFacts ? [achievementFacts] : []),
       ...(certificateFacts ? [certificateFacts] : []),
+      ...(leaderboardFacts ? [leaderboardFacts] : []),
       ...(eventFacts ? [eventFacts] : []),
       ...(tournamentFacts ? [tournamentFacts] : []),
 

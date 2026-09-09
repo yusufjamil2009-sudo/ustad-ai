@@ -27,6 +27,8 @@ import {
 import { megaProfileStatsFn } from "@/lib/mega.functions";
 import { AchievementShowcase } from "@/components/AchievementShowcase";
 import { CertificateSection } from "@/components/CertificateSection";
+import { ProfileLeaderboard } from "@/components/ProfileLeaderboard";
+import { ProfileIdentity } from "@/components/ProfileIdentity";
 import {
   listApiConfigsFn,
   saveApiConfigFn,
@@ -329,6 +331,7 @@ function ProfilePanel({ initial }: { initial: Record<string, unknown> | null }) 
   return (
     <>
       <ProfileAvatarPanel />
+      <ProfileIdentity />
       <div className="panel mb-4 space-y-2 p-5">
         <Label>Appearance</Label>
         <p className="text-xs text-muted-foreground">
@@ -394,6 +397,7 @@ function ProfilePanel({ initial }: { initial: Record<string, unknown> | null }) 
       <MegaProfileStats />
       <AchievementShowcase />
       <CertificateSection />
+      <ProfileLeaderboard />
     </>
   );
 }

@@ -118,8 +118,7 @@ async function collectCupEvents(guestId?: string): Promise<CupEvent[]> {
         category,
         at: String(r["completed_at"] ?? r["created_at"]),
         key: `tour:${r["id"]}`,
-        label:
-          category === "mystery" ? "Mystery + Psychology Cup" : "USTAD GOD MASTER Cup",
+        label: category === "mystery" ? "Mystery + Psychology Cup" : "USTAD GOD MASTER Cup",
         source: category === "mystery" ? "Mystery Tournament" : "God Master Tournament",
         reference: String(r["cycle_id"] ?? r["id"]),
       });
@@ -154,9 +153,7 @@ async function collectCupEvents(guestId?: string): Promise<CupEvent[]> {
 
 function inCycle(e: CupEvent, cycle: RankCycle): boolean {
   const t = Date.parse(e.at);
-  return (
-    Number.isFinite(t) && t >= Date.parse(cycle.startIso) && t < Date.parse(cycle.endIso)
-  );
+  return Number.isFinite(t) && t >= Date.parse(cycle.startIso) && t < Date.parse(cycle.endIso);
 }
 
 function matches(e: CupEvent, category: RankCategory): boolean {
@@ -168,7 +165,7 @@ async function profileNames(guestIds: string[]): Promise<Record<string, string>>
   if (!guestIds.length) return out;
   try {
     const { data } = await sdb().from("profiles").select("guest_id,name").in("guest_id", guestIds);
-    for (const r of ((data ?? []) as Row[])) {
+    for (const r of (data ?? []) as Row[]) {
       out[String(r["guest_id"])] = recipientDisplayName({ name: r["name"] });
     }
   } catch {
@@ -502,6 +499,91 @@ export async function rankContext(guestId: string): Promise<string> {
       coins: a.coins,
     })),
   );
+}
+
+/**
+ * Authoritative weekly-ranking facts for the USTAD AI chat pipeline.
+ *
+ * Composes the caller's LIVE standing in the current Sunday→Sunday week (real
+ * rank among verified cup-holders, per category), the verified cup counts they
+ * own, and their settled previous-week awards. It NEVER prints another user's
+ * name, rank or cups, and returns "" when the caller has no real records — so
+ * the model can answer from facts or say data is unavailable, but can never
+ * invent a leaderboard position.
+ */
+export async function rankChatContext(guestId: string): Promise<string> {
+  const lines: string[] = [];
+  const cycle = currentCycle();
+
+  // Counts for this caller only (cheap, always safe).
+  const mine = await collectCupEvents(guestId);
+  const mineTotal = mine.filter((e) => e.guestId === guestId);
+
+  const totalAllTime = new Map<RankCategory, number>();
+  for (const e of mineTotal) {
+    // "Most Cups" is the union of every category, so each event counts once
+    // there AND once toward its own category. Events whose own category is
+    // already "most_cups" (normal cups) must not be double-counted.
+    totalAllTime.set(e.category, (totalAllTime.get(e.category) ?? 0) + 1);
+    if (e.category !== "most_cups")
+      totalAllTime.set("most_cups", (totalAllTime.get("most_cups") ?? 0) + 1);
+  }
+
+  // Only reach for the global board when this caller has something to rank this
+  // week; otherwise they simply are not on the current leaderboard.
+  const hasCycleCups = mineTotal.some((e) => inCycle(e, cycle));
+  const liveByCategory = new Map<RankCategory, { rank: number; cups: number }>();
+  if (hasCycleCups) {
+    const events = await collectCupEvents();
+    const names = await profileNames([guestId]);
+    for (const category of RANK_CATEGORIES) {
+      const rows = buildBoard(events, category, cycle).map((r) => ({
+        ...r,
+        profileName: names[r.guestId] ?? recipientDisplayName({}),
+      }));
+      const entry = rankEntries(rows, Number.MAX_SAFE_INTEGER).find((r) => r.guestId === guestId);
+      if (entry) liveByCategory.set(category, { rank: entry.rank, cups: entry.cycleCups });
+    }
+  }
+
+  if (liveByCategory.size > 0) {
+    const live: string[] = [];
+    for (const category of RANK_CATEGORIES) {
+      const st = liveByCategory.get(category);
+      if (!st) continue;
+      live.push(
+        `- Live standing in ${CATEGORY_LABEL[category]}: rank #${st.rank} with ${st.cups} verified cup${st.cups === 1 ? "" : "s"} this week (week starting ${cycle.start})`,
+      );
+    }
+    if (live.length)
+      lines.push(`USTAD AI weekly leaderboard — this week (authoritative):\n${live.join("\n")}`);
+  }
+
+  // All-time verified cups per category (still scoped to this caller).
+  const cupsLine: string[] = [];
+  for (const category of RANK_CATEGORIES) {
+    const n = totalAllTime.get(category) ?? 0;
+    if (n > 0)
+      cupsLine.push(`- ${n} verified cup${n === 1 ? "" : "s"} in ${CATEGORY_LABEL[category]}`);
+  }
+  if (cupsLine.length)
+    lines.push(
+      `USTAD AI verified cup counts for this user (authoritative):\n${cupsLine.join("\n")}`,
+    );
+
+  // Settled previous-week awards.
+  const awards = await listRankAwards(guestId);
+  const settled = rankContextLine(
+    awards.map((a) => ({
+      category: a.category,
+      rank: a.rank,
+      cycleStart: a.cycleStart,
+      coins: a.coins,
+    })),
+  );
+  if (settled) lines.push(settled);
+
+  return lines.join("\n\n");
 }
 
 export { cycleFromStart };

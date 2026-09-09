@@ -105,19 +105,21 @@ function newVerificationToken(): string {
   return randomBytes(VERIFY_TOKEN_BYTES).toString("hex");
 }
 
-/** Tamper detection over the immutable facts of a certificate. */
+/**
+ * Tamper detection over the immutable facts of a certificate. `recordKey` is
+ * the stable identity of what the certificate certifies — the achievement id
+ * for tournament certificates, or the weekly-rank reference otherwise.
+ */
 function integrityHash(input: {
   certificateId: string;
   guestId: string;
-  achievementId: string;
+  recordKey: string;
   type: CertificateType;
   issuedAt: string;
 }): string {
   return createHash("sha256")
     .update(
-      [input.certificateId, input.guestId, input.achievementId, input.type, input.issuedAt].join(
-        "|",
-      ),
+      [input.certificateId, input.guestId, input.recordKey, input.type, input.issuedAt].join("|"),
     )
     .digest("hex");
 }
@@ -263,7 +265,13 @@ export async function issueForAchievement(input: {
       issued_at: issuedAt,
       verification_status: "valid",
       verification_token: token,
-      integrity_hash: integrityHash({ certificateId, guestId, achievementId, type, issuedAt }),
+      integrity_hash: integrityHash({
+        certificateId,
+        guestId,
+        recordKey: achievementId,
+        type,
+        issuedAt,
+      }),
       template_code: template.code,
       template_version: template.version,
       metadata: {
@@ -320,6 +328,133 @@ async function findCertificate(
 }
 
 /**
+ * Look up a certificate that was issued WITHOUT an achievement row (a record
+ * certificate, e.g. a weekly rank award). Because `achievement_id` is NULL we
+ * cannot rely on the achievement unique index — the stable `metadata.reference`
+ * (e.g. `week:<start>:<category>:<rank>`) is the dedupe key instead.
+ */
+async function findCertificateByReference(
+  guestId: string,
+  type: CertificateType,
+  reference: string,
+): Promise<Row | null> {
+  const { data } = await sdb()
+    .from("ustad_certificates")
+    .select("*")
+    .eq("guest_id", guestId)
+    .eq("certificate_type", type)
+    .limit(200);
+  const rows = (data ?? []) as Row[];
+  return rows.find((r) => ((r["metadata"] as Row) ?? {})["reference"] === reference) ?? null;
+}
+
+export type StandaloneCertificateInput = {
+  guestId: string;
+  /** Certificate category — e.g. `weekly_rank`. Must be in CertificateType. */
+  type: CertificateType;
+  /**
+   * Stable, unique-per-(guest,type) identity of what this certificate records
+   * (e.g. the weekly rank reference). Used as the idempotency key so a retry,
+   * a refresh or a re-settlement can never mint a duplicate certificate.
+   */
+  reference: string;
+  awardTitle: string;
+  eventName: string;
+  tournament: string;
+  facts?: Array<{ label: string; value: string }>;
+};
+
+/**
+ * Issue a record certificate (weekly rank award) that is not backed by a Part 4
+ * achievement row. The caller has ALREADY verified eligibility (the settlement
+ * engine only calls this for rank awards it just inserted from verified cups),
+ * so this function never judges who deserves a certificate — it only mints and
+ * records one, idempotently.
+ *
+ * Returns the server-generated `certificate_id`. Duplicate proof is guaranteed
+ * by the unique reference inside `metadata` combined with the unique
+ * `ustad_rank_awards (cycle_start, category, guest_id)` settlement row.
+ */
+export async function issueStandaloneCertificate(
+  input: StandaloneCertificateInput,
+): Promise<string> {
+  const existing = await findCertificateByReference(input.guestId, input.type, input.reference);
+  if (existing) return String(existing["certificate_id"]);
+
+  const issuedAt = new Date().toISOString();
+  const certificateId = newCertificateId();
+  const token = newVerificationToken();
+  const template = await templateFor(input.type, null);
+
+  const { data: inserted, error } = await sdb()
+    .from("ustad_certificates")
+    .insert({
+      certificate_id: certificateId,
+      certificate_type: input.type,
+      guest_id: input.guestId,
+      achievement_id: null,
+      event_id: null,
+      match_id: null,
+      issued_at: issuedAt,
+      verification_status: "valid",
+      verification_token: token,
+      integrity_hash: integrityHash({
+        certificateId,
+        guestId: input.guestId,
+        recordKey: input.reference,
+        type: input.type,
+        issuedAt,
+      }),
+      template_code: template.code,
+      template_version: template.version,
+      metadata: {
+        reference: input.reference,
+        eventName: input.eventName,
+        tournament: input.tournament,
+        achievementType: input.type,
+        awardTitle: input.awardTitle,
+        facts: Array.isArray(input.facts) ? input.facts : [],
+        engineVersion: "record.v1",
+      },
+    })
+    .select()
+    .maybeSingle();
+
+  if (error || !inserted) {
+    // A concurrent settlement already recorded the same reference.
+    const again = await findCertificateByReference(input.guestId, input.type, input.reference);
+    if (again) return String(again["certificate_id"]);
+    // Genuine failure — never pretend the certificate exists.
+    throw new Error("Certificate generation failed");
+  }
+
+  await audit(
+    certificateId,
+    "issued",
+    { type: input.type, reference: input.reference },
+    input.guestId,
+  );
+  // Notification keyed on the certificate id → a re-settlement never re-notifies.
+  await notifyGuest(
+    input.guestId,
+    "certificate",
+    `certificate:${certificateId}`,
+    { certificateName: input.awardTitle },
+    {
+      referenceType: "certificate",
+      referenceId: certificateId,
+      metadata: {
+        certificateId,
+        certificateType: input.type,
+        reference: input.reference,
+      },
+    },
+  );
+
+  return certificateId;
+}
+
+/**
  * Issue certificates for every verified achievement this guest holds that does
  * not have one yet. This is the safe retry path and the recovery path after a
  * refresh, a reconnect or a transient failure — all of it idempotent.
@@ -362,7 +497,7 @@ async function toView(row: Row, origin?: string | null): Promise<CertificateView
     documentTitle: CERTIFICATE_TITLE[type],
     tournamentName: String(meta["tournament"] ?? "USTAD AI Tournament"),
     eventName: String(meta["eventName"] ?? "USTAD AI Tournament"),
-    achievementId: String(row["achievement_id"]),
+    achievementId: row["achievement_id"] ? String(row["achievement_id"]) : null,
     eventId: (row["event_id"] as string) ?? null,
     matchId: (row["match_id"] as string) ?? null,
     issuedAt: String(row["issued_at"]),

@@ -37,6 +37,7 @@ export type NotificationType =
   | "coins_spent"
   | "mega_pass"
   | "shop_purchase"
+  | "shop_cosmetic"
   | "feature_unlock"
   | "crorepati_started"
   | "crorepati_won"
@@ -67,6 +68,7 @@ export const CATEGORY_OF: Record<NotificationType, NotificationCategory> = {
   coins_spent: "coins",
   mega_pass: "coins",
   shop_purchase: "shop",
+  shop_cosmetic: "shop",
   feature_unlock: "shop",
   crorepati_started: "tournament",
   crorepati_won: "tournament",
@@ -99,6 +101,7 @@ export const ACTION_PATH_OF: Record<NotificationType, string> = {
   coins_spent: "/shop",
   mega_pass: "/mega",
   shop_purchase: "/shop",
+  shop_cosmetic: "/shop",
   feature_unlock: "/shop",
   crorepati_started: "/crorepati",
   crorepati_won: "/crorepati",
@@ -130,6 +133,7 @@ export const ICON_OF: Record<NotificationType, string> = {
   coins_spent: "💸",
   mega_pass: "🎟️",
   shop_purchase: "🛒",
+  shop_cosmetic: "✨",
   feature_unlock: "🔓",
   crorepati_started: "🎮",
   crorepati_won: "🏆",
@@ -426,6 +430,7 @@ export type NotificationVars = {
   source?: string;
   purpose?: string;
   itemName?: string;
+  cosmeticName?: string;
   featureName?: string;
   eventName?: string;
   achievementName?: string;
@@ -502,6 +507,20 @@ const TEMPLATES: Record<NotificationType, Record<Language, Template>> = {
     hindi: (v, f) => ({
       title: "आइटम अनलॉक हुआ",
       message: `${v.itemName ?? "Item"}\n\n-${f(v.amount ?? 0)} USTAD Coins`,
+    }),
+  },
+  shop_cosmetic: {
+    english: (v) => ({
+      title: "Look Updated",
+      message: `${v.cosmeticName ?? "Your item"} is now equipped on your profile.`,
+    }),
+    hinglish: (v) => ({
+      title: "Look Update hua",
+      message: `${v.cosmeticName ?? "Aapki item"} ab aapke profile par equipped hai.`,
+    }),
+    hindi: (v) => ({
+      title: "लुक अपडेट हुआ",
+      message: `${v.cosmeticName ?? "आपका आइटम"} अब आपकी प्रोफ़ाइल पर लग गया है।`,
     }),
   },
   feature_unlock: {

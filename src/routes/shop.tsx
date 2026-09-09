@@ -9,8 +9,8 @@
  * USTAD Coins are virtual in-app coins. Not money, not rupees, not dollars.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
-import { Coins, Loader2, Lock, ShoppingCart, Check } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Coins, Loader2, Lock, ShoppingCart, Check, Wand2, Ban } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell, PageHeader } from "@/components/AppShell";
@@ -19,7 +19,9 @@ import { useGuest } from "@/lib/ustad-client";
 import { shopFn, shopBuyFn } from "@/lib/wallet.functions";
 import { tournamentTicketsFn, buyGodTicketFn } from "@/lib/tournament.functions";
 import { GOD_TICKET, formatIndianCoins } from "@/lib/tournament-spec";
-
+import { useCosmetics } from "@/lib/useCosmetics";
+import { isEquippableCategory, badgeVisualFor, nameStyleVisualFor } from "@/lib/cosmetics-spec";
+import { cosmeticsEquipFn, cosmeticsUnequipFn } from "@/lib/cosmetics.functions";
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
@@ -41,18 +43,129 @@ export const Route = createFileRoute("/shop")({
 type ShopView = Awaited<ReturnType<typeof shopFn>>;
 type Item = ShopView["categories"][number]["items"][number];
 
+/** Small visual preview for an equippable cosmetic card. */
+function CosmeticPreview({ item, equipped }: { item: Item; equipped: boolean }) {
+  if (item.category === "badges") {
+    const v = badgeVisualFor(item.assetReference);
+    return (
+      <span className="my-2 inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-sm">
+        <span aria-hidden>{v.glyph}</span>
+        <span className="text-xs font-medium">{v.label}</span>
+      </span>
+    );
+  }
+  if (item.category === "name_styles") {
+    const v = nameStyleVisualFor(item.assetReference);
+    return (
+      <span
+        className="my-2 inline-flex items-center rounded-md bg-muted/60 px-2.5 py-1 text-sm font-semibold"
+        style={v.style}
+      >
+        Name Style
+      </span>
+    );
+  }
+  if (item.category === "avatar_frames") {
+    return (
+      <span className="my-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="inline-block size-3 rounded-full ring-2 ring-amber-400" aria-hidden />
+        Avatar frame
+        {equipped ? " · equipped" : ""}
+      </span>
+    );
+  }
+  return null;
+}
+
 function ItemCard({
   item,
   balance,
   busy,
   onBuy,
+  equipped,
+  equipping,
+  onEquip,
+  onUnequip,
 }: {
   item: Item;
   balance: number;
   busy: boolean;
   onBuy: (item: Item) => void;
+  /** true when this specific item is the currently equipped one in its slot. */
+  equipped: boolean;
+  /** true while a cosmetics equip/unequip request is in flight for this card. */
+  equipping: boolean;
+  onEquip: (item: Item) => void;
+  onUnequip: (item: Item) => void;
 }) {
   const affordable = balance >= item.price;
+  const equippable = isEquippableCategory(item.category);
+
+  let action: ReactNode;
+  if (!item.owned) {
+    action = (
+      <Button
+        size="sm"
+        data-testid={`shop-buy-${item.itemId}`}
+        disabled={busy || !affordable}
+        onClick={() => onBuy(item)}
+        className="gap-1.5"
+        title={affordable ? `Buy ${item.name}` : "Not enough USTAD Coins"}
+      >
+        {busy ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        ) : affordable ? (
+          <ShoppingCart className="size-4" aria-hidden />
+        ) : (
+          <Lock className="size-4" aria-hidden />
+        )}
+        {affordable ? "Buy" : "Locked"}
+      </Button>
+    );
+  } else if (equippable) {
+    action = equipped ? (
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={equipping}
+        data-testid={`shop-unequip-${item.itemId}`}
+        onClick={() => onUnequip(item)}
+        className="gap-1.5"
+        title={`Remove ${item.name} from your profile`}
+      >
+        {equipping ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        ) : (
+          <Ban className="size-4" aria-hidden />
+        )}
+        Unequip
+      </Button>
+    ) : (
+      <Button
+        size="sm"
+        data-testid={`shop-equip-${item.itemId}`}
+        disabled={equipping}
+        onClick={() => onEquip(item)}
+        className="gap-1.5"
+        title={`Show ${item.name} on your profile`}
+      >
+        {equipping ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        ) : (
+          <Wand2 className="size-4" aria-hidden />
+        )}
+        Equip
+      </Button>
+    );
+  } else {
+    action = (
+      <Button size="sm" variant="secondary" disabled className="gap-1.5">
+        <Check className="size-4" aria-hidden />
+        Owned
+      </Button>
+    );
+  }
+
   return (
     <div
       data-testid={`shop-item-${item.itemId}`}
@@ -62,12 +175,17 @@ function ItemCard({
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight">{item.name}</h3>
           {item.owned ? (
-            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-300">
-              Owned
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                equipped ? "bg-primary/20 text-primary" : "bg-emerald-500/15 text-emerald-300"
+              }`}
+            >
+              {equipped ? "Equipped" : "Owned"}
             </span>
           ) : null}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+        <CosmeticPreview item={item} equipped={equipped} />
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -78,30 +196,7 @@ function ItemCard({
           <Coins className="size-4 text-amber-400" aria-hidden />
           {item.priceLabel}
         </span>
-        {item.owned ? (
-          <Button size="sm" variant="secondary" disabled className="gap-1.5">
-            <Check className="size-4" aria-hidden />
-            Owned
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            data-testid={`shop-buy-${item.itemId}`}
-            disabled={busy || !affordable}
-            onClick={() => onBuy(item)}
-            className="gap-1.5"
-            title={affordable ? `Buy ${item.name}` : "Not enough USTAD Coins"}
-          >
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : affordable ? (
-              <ShoppingCart className="size-4" aria-hidden />
-            ) : (
-              <Lock className="size-4" aria-hidden />
-            )}
-            {affordable ? "Buy" : "Locked"}
-          </Button>
-        )}
+        {action}
       </div>
     </div>
   );
@@ -115,6 +210,9 @@ function ShopPage() {
   const [active, setActive] = useState<string | null>(null);
   const [tickets, setTickets] = useState(0);
   const [buyingTicket, setBuyingTicket] = useState(false);
+  const [cosmeticsBusy, setCosmeticsBusy] = useState<string | null>(null);
+
+  const { state: cosmetics, refresh: refreshCosmetics } = useCosmetics(token);
 
   /** Always re-read the authoritative wallet; never compute a balance locally. */
   const refresh = useCallback(async () => {
@@ -138,6 +236,51 @@ function ShopPage() {
     void refresh();
   }, [refresh]);
 
+  // Equipped item id per equippable category, for quick lookup in the grid.
+  const equippedByCategory = new Map<string, string | null>();
+  if (cosmetics) {
+    const cats = cosmetics.categories as Record<string, { equippedId: string | null }>;
+    for (const cat of Object.keys(cats)) {
+      equippedByCategory.set(cat, cats[cat]?.equippedId ?? null);
+    }
+  }
+
+  const equip = useCallback(
+    async (item: Item) => {
+      if (!token || cosmeticsBusy) return;
+      setCosmeticsBusy(item.itemId);
+      try {
+        await cosmeticsEquipFn({ data: { token, itemId: item.itemId } });
+        toast.success(`${item.name} is now shown on your profile.`);
+        await refreshCosmetics();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not equip this item.");
+      } finally {
+        setCosmeticsBusy(null);
+      }
+    },
+    [token, cosmeticsBusy, refreshCosmetics],
+  );
+
+  const unequip = useCallback(
+    async (item: Item) => {
+      if (!token || cosmeticsBusy || !isEquippableCategory(item.category)) return;
+      setCosmeticsBusy(item.itemId);
+      try {
+        await cosmeticsUnequipFn({
+          data: { token, category: item.category },
+        });
+        toast.success(`${item.name} removed from your profile.`);
+        await refreshCosmetics();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not unequip this item.");
+      } finally {
+        setCosmeticsBusy(null);
+      }
+    },
+    [token, cosmeticsBusy, refreshCosmetics],
+  );
+
   const buyTicket = useCallback(async () => {
     if (!token || buyingTicket) return;
     setBuyingTicket(true);
@@ -151,7 +294,6 @@ function ShopPage() {
       setBuyingTicket(false);
     }
   }, [token, buyingTicket, refresh]);
-
 
   const buy = useCallback(
     async (item: Item) => {
@@ -219,7 +361,6 @@ function ShopPage() {
         </Button>
       </div>
 
-
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -259,6 +400,10 @@ function ShopPage() {
                     balance={shop.wallet.balance}
                     busy={buying === item.itemId}
                     onBuy={buy}
+                    equipped={equippedByCategory.get(item.category) === item.itemId}
+                    equipping={cosmeticsBusy === item.itemId}
+                    onEquip={equip}
+                    onUnequip={unequip}
                   />
                 ))}
               </div>

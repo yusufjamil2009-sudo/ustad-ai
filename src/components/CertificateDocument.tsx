@@ -408,7 +408,8 @@ export function CertificateDocument({
         fill={ink}
         opacity="0.4"
       >
-        Template {cert.templateCode} v{cert.templateVersion} · Achievement {cert.achievementId}
+        Template {cert.templateCode} v{cert.templateVersion} ·{" "}
+        {cert.achievementId ? `Achievement ${cert.achievementId}` : "Verified USTAD AI record"}
       </text>
 
       {/* Revoked overlay — a revoked certificate must never look valid. */}

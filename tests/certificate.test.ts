@@ -29,12 +29,19 @@ test("every Part 4 achievement maps to a certificate type", () => {
 });
 
 test("each certificate type has its own title, award line and template", () => {
-  const types = Object.values(CERTIFICATE_FOR_ACHIEVEMENT);
-  assert.equal(new Set(types).size, 4);
-  assert.equal(new Set(Object.values(CERTIFICATE_TITLE)).size, 4);
-  assert.equal(new Set(Object.values(CERTIFICATE_AWARD_LINE)).size, 4);
-  assert.equal(new Set(Object.values(DEFAULT_TEMPLATE)).size, 4);
-  for (const t of types) assert.ok(DEFAULT_TEMPLATE[t]);
+  // Four achievement-backed types map from verified Part 4 achievements…
+  const achievementTypes = Object.values(CERTIFICATE_FOR_ACHIEVEMENT);
+  assert.equal(new Set(achievementTypes).size, 4);
+  // …and a fifth record-backed type (weekly rank) is not achievement-mapped.
+  const all = [...achievementTypes, "weekly_rank"];
+  assert.equal(new Set(Object.values(CERTIFICATE_TITLE)).size, 5);
+  assert.equal(new Set(Object.values(CERTIFICATE_AWARD_LINE)).size, 5);
+  assert.equal(new Set(Object.values(DEFAULT_TEMPLATE)).size, 5);
+  for (const t of all) {
+    assert.ok(CERTIFICATE_TITLE[t as keyof typeof CERTIFICATE_TITLE]);
+    assert.ok(DEFAULT_TEMPLATE[t as keyof typeof DEFAULT_TEMPLATE]);
+  }
+  assert.ok(!(Object.keys(CERTIFICATE_FOR_ACHIEVEMENT) as string[]).includes("weekly_rank"));
 });
 
 test("ultra certificate is visually and textually distinct", () => {

@@ -12,7 +12,7 @@
 import type { AchievementType } from "./trophy-spec";
 
 export type CertificateType =
-  "tournament_winner" | "mega_winner" | "grandmaster" | "ultra_grandmaster";
+  "tournament_winner" | "mega_winner" | "grandmaster" | "ultra_grandmaster" | "weekly_rank";
 
 export type CertificateStatus = "valid" | "revoked";
 
@@ -29,6 +29,7 @@ export const CERTIFICATE_TITLE: Record<CertificateType, string> = {
   mega_winner: "Certificate of Championship",
   grandmaster: "Certificate of Grandmaster Status",
   ultra_grandmaster: "Certificate of Ultra Great Grandmaster",
+  weekly_rank: "Certificate of Weekly Ranking",
 };
 
 export const CERTIFICATE_AWARD_LINE: Record<CertificateType, string> = {
@@ -36,6 +37,7 @@ export const CERTIFICATE_AWARD_LINE: Record<CertificateType, string> = {
   mega_winner: "Mega Tournament Winner",
   grandmaster: "USTAD AI Grandmaster",
   ultra_grandmaster: "USTAD AI Ultra Great Grandmaster",
+  weekly_rank: "USTAD AI Weekly Leaderboard",
 };
 
 export const DEFAULT_TEMPLATE: Record<CertificateType, string> = {
@@ -43,6 +45,7 @@ export const DEFAULT_TEMPLATE: Record<CertificateType, string> = {
   mega_winner: "ustad-cert-mega-v1",
   grandmaster: "ustad-cert-grandmaster-v1",
   ultra_grandmaster: "ustad-cert-ultra-v1",
+  weekly_rank: "ustad-cert-weekly-rank-v1",
 };
 
 export type CertificateTheme = {
@@ -66,7 +69,9 @@ export type CertificateView = {
   documentTitle: string;
   tournamentName: string;
   eventName: string;
-  achievementId: string;
+  /** Verified achievement backing this certificate. Null for records that are
+   *  not tied to a tournament achievement row (e.g. a weekly rank award). */
+  achievementId: string | null;
   eventId: string | null;
   matchId: string | null;
   issuedAt: string;
