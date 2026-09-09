@@ -55,6 +55,8 @@ export type NotificationType =
   | "ultra_grandmaster"
   | "certificate"
   | "profile_updated"
+  | "offer_coming_soon"
+  | "offer_live"
   | "event_participated"
   | "event_result"
   | "event_reminder_3d"
@@ -86,6 +88,8 @@ export const CATEGORY_OF: Record<NotificationType, NotificationCategory> = {
   ultra_grandmaster: "achievements",
   certificate: "certificates",
   profile_updated: "system",
+  offer_coming_soon: "shop",
+  offer_live: "shop",
   event_participated: "events",
   event_result: "events",
   event_reminder_3d: "events",
@@ -119,6 +123,8 @@ export const ACTION_PATH_OF: Record<NotificationType, string> = {
   ultra_grandmaster: "/settings",
   certificate: "/settings",
   profile_updated: "/settings",
+  offer_coming_soon: "/shop",
+  offer_live: "/shop",
   event_participated: "/events",
   event_result: "/events",
   event_reminder_3d: "/events",
@@ -151,6 +157,8 @@ export const ICON_OF: Record<NotificationType, string> = {
   ultra_grandmaster: "💎",
   certificate: "📜",
   profile_updated: "👤",
+  offer_coming_soon: "🔥",
+  offer_live: "🔥",
   event_participated: "📅",
   event_result: "📊",
   event_reminder_3d: "🔔",
@@ -438,6 +446,7 @@ export type NotificationVars = {
   score?: number;
   total?: number;
   reward?: number;
+  discountPct?: number;
   days?: number;
   startAt?: string;
   count?: number;
@@ -744,6 +753,34 @@ const TEMPLATES: Record<NotificationType, Record<Language, Template>> = {
     hindi: () => ({
       title: "प्रोफ़ाइल अपडेट हुई",
       message: "आपकी प्रोफ़ाइल फ़ोटो सफलतापूर्वक अपडेट हो गई।",
+    }),
+  },
+  offer_coming_soon: {
+    english: (v) => ({
+      title: "Special Coin Offer Coming Soon",
+      message: `A global USTAD Coin offer is coming this week — up to ${v.discountPct ?? "??"}% OFF on eligible purchases.`,
+    }),
+    hinglish: (v) => ({
+      title: "Special Coin Offer Aane wala hai",
+      message: `Is hafte USTAD Coin offer aane wala hai — eligible purchases par ${v.discountPct ?? "??"}% tak OFF.`,
+    }),
+    hindi: (v) => ({
+      title: "विशेष सिक्का ऑफ़र आने वाला है",
+      message: `इस हफ्ते USTAD Coin ऑफ़र आने वाला है — eligible खरीद पर ${v.discountPct ?? "??"}% तक छूट।`,
+    }),
+  },
+  offer_live: {
+    english: (v) => ({
+      title: "Coin Offer is LIVE!",
+      message: `🔥 ${v.discountPct ?? "??"}% OFF on all eligible USTAD Coin purchases. Grab it now!`,
+    }),
+    hinglish: (v) => ({
+      title: "Coin Offer LIVE hai!",
+      message: `🔥 Saare eligible USTAD Coin purchases par ${v.discountPct ?? "??"}% OFF. Abhi le lo!`,
+    }),
+    hindi: (v) => ({
+      title: "सिक्का ऑफ़र लाइव है!",
+      message: `🔥 सभी eligible USTAD Coin खरीद पर ${v.discountPct ?? "??"}% छूट। अभी लें!`,
     }),
   },
   event_participated: {

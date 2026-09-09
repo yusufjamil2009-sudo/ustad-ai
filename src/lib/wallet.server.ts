@@ -13,6 +13,7 @@
  */
 import { requireGuest, db } from "./guest.server";
 import { notifyGuest } from "./notification.server";
+import { coinOfferPrice } from "./coin-offer.server";
 import {
   formatCoins,
   isValidCoinAmount,
@@ -343,15 +344,27 @@ export async function buyItem(input: { token: unknown; itemId: string }): Promis
     throw new Error("That item cannot be sold.");
   }
 
-  const { data, error } = await sdb().rpc("ustad_shop_buy", {
+  // A live Global Coin Offer discounts the item — the server computes the real
+  // discounted price from the catalogue base and hands it to the atomic RPC,
+  // which is the only thing allowed to charge coins and grant ownership. The
+  // client still never supplies a price (coinOfferPrice keeps its authority).
+  const offerPrice = await coinOfferPrice(Number(item["price_coins"]));
+  const rpcArgs: Record<string, unknown> = {
     p_guest_id: guestId,
     p_item_id: itemId,
-  });
+  };
+  if (offerPrice.offerActive) {
+    rpcArgs["p_final_price"] = offerPrice.finalPrice;
+    rpcArgs["p_offer_weekly_id"] = offerPrice.weeklyOfferId;
+    rpcArgs["p_discount_pct"] = offerPrice.discountPct;
+    rpcArgs["p_offer_base_price"] = offerPrice.basePrice;
+  }
+  const { data, error } = await sdb().rpc("ustad_shop_buy", rpcArgs);
   if (error) {
     const msg = String(error.message ?? "");
     if (msg.includes("INSUFFICIENT_COINS")) {
       const wallet = await getWallet(guestId);
-      const short = Number(item["price_coins"]) - wallet.balance;
+      const short = offerPrice.finalPrice - wallet.balance;
       throw new Error(`Not enough USTAD Coins — you need ${formatCoins(short)} more.`);
     }
     throw new Error(msg);

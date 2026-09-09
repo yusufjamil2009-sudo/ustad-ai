@@ -18,6 +18,7 @@ import { requireGuest, db } from "./guest.server";
 import { applyCoins, balanceOf } from "./wallet.server";
 import { guestLocale, notifyGuest } from "./notification.server";
 import { awardAchievement } from "./trophy-engine.server";
+import { coinOfferPrice, recordOfferPurchase } from "./coin-offer.server";
 import { generateTournamentSet } from "./tournament-ai.server";
 import {
   configFor,
@@ -68,18 +69,44 @@ export async function buyGodTicket(token: unknown): Promise<{
 }> {
   const guestId = await requireGuest(token);
   const price = GOD_TICKET.price;
+  // A live Global Coin Offer discounts the ticket — the discounted amount is
+  // what is actually charged (server-authoritative, never client-chosen).
+  const offerPrice = await coinOfferPrice(price);
+  const payable = offerPrice.finalPrice;
   const balance = await balanceOf(guestId);
-  if (balance < price) throw new Error("Not enough USTAD Coins for a God Tournament Ticket.");
+  if (balance < payable)
+    throw new Error(
+      `Not enough USTAD Coins for a God Tournament Ticket${
+        offerPrice.offerActive ? ` (offer price ${payable.toLocaleString("en-IN")})` : ""
+      }.`,
+    );
 
   const refId = `god_ticket:${guestId}:${Date.now()}`;
   const res = await applyCoins({
     guestId,
     source: "tournament_ticket",
     refId,
-    amount: -price,
+    amount: -payable,
     type: "purchase",
-    note: "God Tournament Ticket",
+    note: offerPrice.offerActive
+      ? `God Tournament Ticket (${offerPrice.discountPct}% OFF)`
+      : "God Tournament Ticket",
   });
+  // Audit the discounted transaction when an offer applied.
+  if (offerPrice.offerActive) {
+    await recordOfferPurchase({
+      weeklyOfferId: offerPrice.weeklyOfferId!,
+      guestId,
+      itemKind: "ticket",
+      itemId: GOD_TICKET.itemId,
+      basePrice: price,
+      discountPct: offerPrice.discountPct,
+      discountAmount: offerPrice.discountAmount,
+      finalPrice: payable,
+      source: "tournament_ticket",
+      refId,
+    }).catch(() => {});
+  }
 
   const { data } = await sdb().rpc("ustad_ticket_grant", { p_guest_id: guestId, p_amount: 1 });
   const tickets = Number(data ?? (await ticketBalance(guestId)));
@@ -335,15 +362,37 @@ export async function startTournament(input: {
       await sdb().from(ATTEMPTS).update({ ticket_consumed: true }).eq("id", attemptId);
     }
 
+    // A live Global Coin Offer discounts the entry fee — charge the real price.
+    const offerPrice = await coinOfferPrice(cfg.entryFee);
+    const payable = offerPrice.finalPrice;
     const paid = await applyCoins({
       guestId,
       source: "tournament_entry",
       refId: attemptId,
-      amount: -cfg.entryFee,
+      amount: -payable,
       type: "entry_fee",
-      note: `${cfg.title} entry`,
+      note: offerPrice.offerActive
+        ? `${cfg.title} entry (${offerPrice.discountPct}% OFF)`
+        : `${cfg.title} entry`,
     });
-    await sdb().from(ATTEMPTS).update({ entry_txn_id: String(paid?.transactionId ?? "") }).eq("id", attemptId);
+    if (offerPrice.offerActive) {
+      await recordOfferPurchase({
+        weeklyOfferId: offerPrice.weeklyOfferId!,
+        guestId,
+        itemKind: "tournament_entry",
+        itemId: cfg.kind,
+        basePrice: cfg.entryFee,
+        discountPct: offerPrice.discountPct,
+        discountAmount: offerPrice.discountAmount,
+        finalPrice: payable,
+        source: "tournament_entry",
+        refId: attemptId,
+      }).catch(() => {});
+    }
+    await sdb()
+      .from(ATTEMPTS)
+      .update({ entry_txn_id: String(paid?.transactionId ?? ""), entry_amount: payable })
+      .eq("id", attemptId);
 
     const { data: pastRows } = await sdb()
       .from(QUESTIONS)

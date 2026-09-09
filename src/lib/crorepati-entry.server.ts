@@ -17,6 +17,7 @@
 import { requireGuest, db } from "./guest.server";
 import { notifyGuest } from "./notification.server";
 import { applyCoins, balanceOf } from "./wallet.server";
+import { coinOfferPrice, recordOfferPurchase } from "./coin-offer.server";
 import {
   clampFreeEntries,
   evaluateEligibility,
@@ -214,8 +215,6 @@ async function hasPlayedOccurrence(guestId: string, occurrenceId: string): Promi
   return Boolean((data ?? []).length);
 }
 
-
-
 /* ------------------------------------------------------------------ */
 /* Entry state                                                         */
 /* ------------------------------------------------------------------ */
@@ -393,7 +392,6 @@ export async function getEntryState(token: unknown): Promise<EntryStateView> {
   const balance = await coinBalance(guestId);
   const playedToday = open ? await hasPlayedOccurrence(guestId, String(open["id"])) : false;
 
-
   const { data: history } = await sdb()
     .from("crorepati_entries")
     .select("*")
@@ -506,8 +504,6 @@ export async function grantEntry(input: {
   if (await hasPlayedOccurrence(guestId, String(occurrence["id"])))
     throw new Error(ALREADY_PLAYED_REASON);
 
-
-
   const balance = await coinBalance(guestId);
   const free = Number(state["free_entries"] ?? 0);
   const verdict = evaluateEligibility({
@@ -594,8 +590,10 @@ export async function grantEntry(input: {
     return { entryId: String(entry["id"]), entryType: "free", cost: 0, reused: false };
   }
 
-  // Paid entry — virtual USTAD Coins only.
-  const cost = cfg.paidEntryCoinCost;
+  // Paid entry — virtual USTAD Coins only. A live Global Coin Offer discounts
+  // the entry fee: the real discounted amount is what is charged and recorded.
+  const offerPrice = await coinOfferPrice(cfg.paidEntryCoinCost);
+  const cost = offerPrice.finalPrice;
   const entry = await insertEntry(client, {
     guestId,
     event,
@@ -613,6 +611,22 @@ export async function grantEntry(input: {
     await client.from("crorepati_entries").update({ status: "void" }).eq("id", entry["id"]);
     await ledger(guestId, `${entry["id"]}:refund`, cost, "Crorepati entry refund");
     throw new Error("Not enough USTAD Coins for a paid entry.");
+  }
+
+  // Audit a discounted transaction ONLY once the charge is confirmed.
+  if (offerPrice.offerActive) {
+    await recordOfferPurchase({
+      weeklyOfferId: offerPrice.weeklyOfferId!,
+      guestId,
+      itemKind: "crorepati_entry",
+      itemId: String(event["id"]),
+      basePrice: cfg.paidEntryCoinCost,
+      discountPct: offerPrice.discountPct,
+      discountAmount: offerPrice.discountAmount,
+      finalPrice: cost,
+      source: "crorepati_entry",
+      refId: String(entry["id"]),
+    }).catch(() => {});
   }
 
   await client

@@ -17,6 +17,7 @@
 import { requireGuest, db } from "./guest.server";
 import { notifyGuest } from "./notification.server";
 import { applyCoins, balanceOf } from "./wallet.server";
+import { coinOfferPrice, recordOfferPurchase } from "./coin-offer.server";
 import { generateQuizSet, questionHash } from "./crorepati-ai.server";
 import type { Language } from "./router.server";
 import {
@@ -181,7 +182,10 @@ export async function buyPass(token: unknown) {
     return { pass: passView(existing), balance: await coinBalance(guestId), alreadyOwned: true };
   }
 
-  const cost = Number(event["pass_cost"]);
+  const baseCost = Number(event["pass_cost"]);
+  // A live Global Coin Offer discounts the pass — charge the real amount.
+  const offerPrice = await coinOfferPrice(baseCost);
+  const cost = offerPrice.finalPrice;
   const balance = await coinBalance(guestId);
   if (balance < cost) {
     throw new Error(
@@ -195,6 +199,7 @@ export async function buyPass(token: unknown) {
       guest_id: guestId,
       event_id: event["id"],
       cost,
+      base_cost: baseCost,
       status: "active",
       valid_from: event["starts_at"],
       valid_until: event["ends_at"],
@@ -209,7 +214,29 @@ export async function buyPass(token: unknown) {
   }
 
   // The debit is keyed by the pass id, so it can never be applied twice.
-  await ledger(guestId, "mega_pass", String(created["id"]), -cost, "Mega Tournament weekly pass");
+  await ledger(
+    guestId,
+    "mega_pass",
+    String(created["id"]),
+    -cost,
+    offerPrice.offerActive
+      ? `Mega Tournament weekly pass (${offerPrice.discountPct}% OFF)`
+      : "Mega Tournament weekly pass",
+  );
+  if (offerPrice.offerActive) {
+    await recordOfferPurchase({
+      weeklyOfferId: offerPrice.weeklyOfferId!,
+      guestId,
+      itemKind: "pass",
+      itemId: "mega_pass",
+      basePrice: baseCost,
+      discountPct: offerPrice.discountPct,
+      discountAmount: offerPrice.discountAmount,
+      finalPrice: cost,
+      source: "mega_pass",
+      refId: String(created["id"]),
+    }).catch(() => {});
+  }
   // Part 9 (spec §14): raised only after the debit and the pass row both
   // succeeded, keyed on the pass id so a retry cannot notify twice.
   await notifyGuest(

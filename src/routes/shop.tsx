@@ -22,6 +22,7 @@ import { GOD_TICKET, formatIndianCoins } from "@/lib/tournament-spec";
 import { useCosmetics } from "@/lib/useCosmetics";
 import { isEquippableCategory, badgeVisualFor, nameStyleVisualFor } from "@/lib/cosmetics-spec";
 import { cosmeticsEquipFn, cosmeticsUnequipFn } from "@/lib/cosmetics.functions";
+import { CoinOfferBanner } from "@/components/CoinOfferBanner";
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
@@ -323,6 +324,8 @@ function ShopPage() {
         title="🛒 USTAD Shop"
         subtitle="Spend the USTAD Coins you win in quizzes and tournaments. Everything here is cosmetic or customization — nothing affects a game result."
       />
+
+      <CoinOfferBanner token={token} />
 
       <div
         data-testid="shop-balance"

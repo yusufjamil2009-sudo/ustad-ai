@@ -27,6 +27,7 @@ import { randomUUID } from "node:crypto";
 import { requireGuest, db } from "./guest.server";
 import { notifyGuest } from "./notification.server";
 import { applyCoins, balanceOf } from "./wallet.server";
+import { coinOfferCharge } from "./coin-offer.server";
 import { generateQuizSet, questionHash, ladderDifficulty } from "./crorepati-ai.server";
 import type { Language } from "./router.server";
 import { onMasterEventWin } from "./trophy-engine.server";
@@ -858,12 +859,20 @@ export async function startAttempt(input: {
     );
 
   if (decision.coinCost > 0) {
-    await ledger(
+    // A live Global Coin Offer discounts the event entry — the real discounted
+    // amount is charged and audited in one atomic choke point. coinOfferCharge
+    // reuses master_event's own applyCoins source + reward-ref id, so retries
+    // stay idempotent exactly as the local ledger() did.
+    await coinOfferCharge({
       guestId,
-      rewardRefId(String(event["id"]), attemptId, "entry"),
-      -decision.coinCost,
-      `Entry — ${String(event["name"])}`,
-    );
+      source: "master_event",
+      refId: rewardRefId(String(event["id"]), attemptId, "entry"),
+      basePrice: decision.coinCost,
+      type: "master_event",
+      note: `Entry — ${String(event["name"])}`,
+      itemKind: "master_event_entry",
+      itemId: String(event["id"]),
+    });
   }
 
   await audit({
