@@ -3497,6 +3497,7 @@ export type Database = {
           issued_at: string
           match_id: string | null
           metadata: Json
+          reference_key: string | null
           revoked_at: string | null
           revoked_reason: string
           template_code: string
@@ -3519,6 +3520,7 @@ export type Database = {
           issued_at?: string
           match_id?: string | null
           metadata?: Json
+          reference_key?: string | null
           revoked_at?: string | null
           revoked_reason?: string
           template_code?: string
@@ -3541,6 +3543,7 @@ export type Database = {
           issued_at?: string
           match_id?: string | null
           metadata?: Json
+          reference_key?: string | null
           revoked_at?: string | null
           revoked_reason?: string
           template_code?: string
@@ -3896,6 +3899,7 @@ export type Database = {
           id: string
           profile_name: string
           rank: number
+          status: string
           transaction_id: string | null
           updated_at: string
         }
@@ -3912,6 +3916,7 @@ export type Database = {
           id?: string
           profile_name?: string
           rank: number
+          status?: string
           transaction_id?: string | null
           updated_at?: string
         }
@@ -3928,6 +3933,7 @@ export type Database = {
           id?: string
           profile_name?: string
           rank?: number
+          status?: string
           transaction_id?: string | null
           updated_at?: string
         }
