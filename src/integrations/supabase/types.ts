@@ -3768,6 +3768,7 @@ export type Database = {
           category: string
           created_at: string
           dedupe_key: string
+          deleted_at: string | null
           guest_id: string
           id: string
           is_read: boolean
@@ -3786,6 +3787,7 @@ export type Database = {
           category?: string
           created_at?: string
           dedupe_key: string
+          deleted_at?: string | null
           guest_id: string
           id?: string
           is_read?: boolean
@@ -3804,6 +3806,7 @@ export type Database = {
           category?: string
           created_at?: string
           dedupe_key?: string
+          deleted_at?: string | null
           guest_id?: string
           id?: string
           is_read?: boolean
