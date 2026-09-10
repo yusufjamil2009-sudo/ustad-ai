@@ -2734,6 +2734,7 @@ export type Database = {
       }
       mega_passes: {
         Row: {
+          base_cost: number
           cost: number
           event_id: string
           guest_id: string
@@ -2744,6 +2745,7 @@ export type Database = {
           valid_until: string
         }
         Insert: {
+          base_cost?: number
           cost?: number
           event_id: string
           guest_id: string
@@ -2754,6 +2756,7 @@ export type Database = {
           valid_until: string
         }
         Update: {
+          base_cost?: number
           cost?: number
           event_id?: string
           guest_id?: string
@@ -3009,7 +3012,9 @@ export type Database = {
           board: string | null
           created_at: string
           education: string | null
+          equipped_badge: string | null
           equipped_frame: string | null
+          equipped_name_style: string | null
           guest_id: string
           interests: string | null
           klass: string | null
@@ -3026,7 +3031,9 @@ export type Database = {
           board?: string | null
           created_at?: string
           education?: string | null
+          equipped_badge?: string | null
           equipped_frame?: string | null
+          equipped_name_style?: string | null
           guest_id: string
           interests?: string | null
           klass?: string | null
@@ -3043,7 +3050,9 @@ export type Database = {
           board?: string | null
           created_at?: string
           education?: string | null
+          equipped_badge?: string | null
           equipped_frame?: string | null
+          equipped_name_style?: string | null
           guest_id?: string
           interests?: string | null
           klass?: string | null
@@ -3054,8 +3063,22 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "profiles_equipped_badge_fk"
+            columns: ["equipped_badge"]
+            isOneToOne: false
+            referencedRelation: "ustad_shop_items"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "profiles_equipped_frame_fk"
             columns: ["equipped_frame"]
+            isOneToOne: false
+            referencedRelation: "ustad_shop_items"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "profiles_equipped_name_style_fk"
+            columns: ["equipped_name_style"]
             isOneToOne: false
             referencedRelation: "ustad_shop_items"
             referencedColumns: ["item_id"]
@@ -3474,6 +3497,7 @@ export type Database = {
           issued_at: string
           match_id: string | null
           metadata: Json
+          reference_key: string | null
           revoked_at: string | null
           revoked_reason: string
           template_code: string
@@ -3496,6 +3520,7 @@ export type Database = {
           issued_at?: string
           match_id?: string | null
           metadata?: Json
+          reference_key?: string | null
           revoked_at?: string | null
           revoked_reason?: string
           template_code?: string
@@ -3518,6 +3543,7 @@ export type Database = {
           issued_at?: string
           match_id?: string | null
           metadata?: Json
+          reference_key?: string | null
           revoked_at?: string | null
           revoked_reason?: string
           template_code?: string
@@ -3596,6 +3622,110 @@ export type Database = {
           },
         ]
       }
+      ustad_coin_offer_purchases: {
+        Row: {
+          base_price: number
+          created_at: string
+          discount_amount: number
+          discount_pct: number
+          final_price: number
+          guest_id: string
+          id: string
+          item_id: string
+          item_kind: string
+          ref_id: string
+          source: string
+          weekly_offer_id: string
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          discount_amount?: number
+          discount_pct?: number
+          final_price?: number
+          guest_id: string
+          id?: string
+          item_id?: string
+          item_kind?: string
+          ref_id?: string
+          source?: string
+          weekly_offer_id: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          discount_amount?: number
+          discount_pct?: number
+          final_price?: number
+          guest_id?: string
+          id?: string
+          item_id?: string
+          item_kind?: string
+          ref_id?: string
+          source?: string
+          weekly_offer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ustad_coin_offer_purchases_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ustad_coin_offers: {
+        Row: {
+          coins_deducted: number
+          created_at: string
+          cycle_end: string
+          cycle_start: string
+          discount_pct: number
+          duration_minutes: number
+          end_iso: string
+          id: string
+          offer_day_offset: number
+          purchases_count: number
+          start_iso: string
+          status: string
+          updated_at: string
+          weekly_offer_id: string
+        }
+        Insert: {
+          coins_deducted?: number
+          created_at?: string
+          cycle_end: string
+          cycle_start: string
+          discount_pct: number
+          duration_minutes: number
+          end_iso: string
+          id?: string
+          offer_day_offset?: number
+          purchases_count?: number
+          start_iso: string
+          status?: string
+          updated_at?: string
+          weekly_offer_id: string
+        }
+        Update: {
+          coins_deducted?: number
+          created_at?: string
+          cycle_end?: string
+          cycle_start?: string
+          discount_pct?: number
+          duration_minutes?: number
+          end_iso?: string
+          id?: string
+          offer_day_offset?: number
+          purchases_count?: number
+          start_iso?: string
+          status?: string
+          updated_at?: string
+          weekly_offer_id?: string
+        }
+        Relationships: []
+      }
       ustad_event_reminder_log: {
         Row: {
           event_id: string
@@ -3641,6 +3771,7 @@ export type Database = {
           category: string
           created_at: string
           dedupe_key: string
+          deleted_at: string | null
           guest_id: string
           id: string
           is_read: boolean
@@ -3659,6 +3790,7 @@ export type Database = {
           category?: string
           created_at?: string
           dedupe_key: string
+          deleted_at?: string | null
           guest_id: string
           id?: string
           is_read?: boolean
@@ -3677,6 +3809,7 @@ export type Database = {
           category?: string
           created_at?: string
           dedupe_key?: string
+          deleted_at?: string | null
           guest_id?: string
           id?: string
           is_read?: boolean
@@ -3766,6 +3899,7 @@ export type Database = {
           id: string
           profile_name: string
           rank: number
+          status: string
           transaction_id: string | null
           updated_at: string
         }
@@ -3782,6 +3916,7 @@ export type Database = {
           id?: string
           profile_name?: string
           rank: number
+          status?: string
           transaction_id?: string | null
           updated_at?: string
         }
@@ -3798,6 +3933,7 @@ export type Database = {
           id?: string
           profile_name?: string
           rank?: number
+          status?: string
           transaction_id?: string | null
           updated_at?: string
         }
@@ -4034,7 +4170,14 @@ export type Database = {
         }[]
       }
       ustad_shop_buy: {
-        Args: { p_guest_id: string; p_item_id: string }
+        Args: {
+          p_discount_pct?: number
+          p_final_price?: number
+          p_guest_id: string
+          p_item_id: string
+          p_offer_base_price?: number
+          p_offer_weekly_id?: string
+        }
         Returns: {
           already_owned: boolean
           balance_after: number
