@@ -883,7 +883,20 @@ export async function submitAnswer(input: {
   const scoring: MegaScoring = { ...DEFAULT_SCORING, ...((event["scoring"] as MegaScoring) ?? {}) };
   const delta = correct ? scoring.correct : scoring.wrong;
 
-  // Insert-only: the composite PK makes a second submission impossible.
+  // Check if already answered before attempting insert (prevents duplicate errors)
+  const { data: existingAnswer } = await sdb()
+    .from("mega_match_answers")
+    .select("id")
+    .eq("match_id", input.matchId)
+    .eq("question_number", input.questionNumber)
+    .eq("guest_id", guestId)
+    .maybeSingle();
+  if (existingAnswer) {
+    // Already answered — the answer stays locked, nothing is scored twice.
+    return buildMatchView(match, event, guestId);
+  }
+
+  // Insert the answer
   const { error } = await sdb().from("mega_match_answers").insert({
     match_id: input.matchId,
     question_number: input.questionNumber,
@@ -894,10 +907,6 @@ export async function submitAnswer(input: {
     score_delta: delta,
   });
   if (error) {
-    if (/duplicate|unique/i.test(error.message)) {
-      // Already answered — the answer stays locked, nothing is scored twice.
-      return buildMatchView(match, event, guestId);
-    }
     throw new Error(error.message);
   }
 
