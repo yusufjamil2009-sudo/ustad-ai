@@ -140,14 +140,14 @@ export function validateSchedule(input: {
 
 /** Minute-of-day in India time for an instant (0..1439). */
 export function istMinuteOfDay(at: Date | number): number {
-  const ms = new Date(at).getTime() + IST_OFFSET_MS;
+  const ms = new Date(at).getTime() + offerZoneOffsetMs(at);
   const d = new Date(ms);
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
 
 /** The India-time weekday (0=Sun…6=Sat) for an instant. */
 export function istWeekday(at: Date | number): number {
-  const d = new Date(new Date(at).getTime() + IST_OFFSET_MS);
+  const d = new Date(new Date(at).getTime() + offerZoneOffsetMs(at));
   return d.getUTCDay();
 }
 
@@ -163,7 +163,7 @@ export function offerWindowIso(
   durationMinutes: number,
 ): { startIso: string; endIso: string } {
   const startLocal = new Date(Date.parse(`${cycle.start}T00:00:00Z`) + dayOffset * 86_400_000);
-  const startAbs = startLocal.getTime() + startMinute * 60_000 - IST_OFFSET_MS;
+  const startAbs = startLocal.getTime() + startMinute * 60_000 - offerZoneOffsetMs(startLocal);
   const endAbs = startAbs + durationMinutes * 60_000;
   return { startIso: new Date(startAbs).toISOString(), endIso: new Date(endAbs).toISOString() };
 }
