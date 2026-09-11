@@ -112,6 +112,11 @@ export function previousCycle(cycle: RankCycle): RankCycle {
   return cycleFromSundayMs(Date.parse(`${cycle.start}T00:00:00Z`) - 7 * DAY_MS);
 }
 
+/** The cycle immediately AFTER `cycle` (next Sunday→Sunday, India time). */
+export function nextCycle(cycle: RankCycle): RankCycle {
+  return cycleFromSundayMs(Date.parse(`${cycle.start}T00:00:00Z`) + 7 * DAY_MS);
+}
+
 export function cycleFromStart(start: string): RankCycle {
   return cycleFromSundayMs(Date.parse(`${start}T00:00:00Z`));
 }

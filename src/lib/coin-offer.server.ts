@@ -22,7 +22,7 @@
 import { db } from "./guest.server";
 import { notifyGuest } from "./notification.server";
 import { applyCoins } from "./wallet.server";
-import { currentCycle, previousCycle, type RankCycle } from "./rank-spec";
+import { currentCycle, nextCycle, previousCycle, type RankCycle } from "./rank-spec";
 import {
   discountAmount,
   generateWeeklyOffer,
@@ -110,6 +110,21 @@ export async function activeOffer(now: Date = new Date()): Promise<WeeklyOffer |
   // Only consider live if inside the window AND rules hold.
   if (!isOfferLive(off, now)) return null;
   return off;
+}
+
+/**
+ * The offer a banner should show: this week's offer while it is still live or
+ * still ahead, otherwise NEXT week's offer (persisted the same way), so the
+ * banner never advertises a window that has already passed.
+ */
+export async function bannerOffer(
+  now: Date = new Date(),
+): Promise<{ offer: WeeklyOffer; live: boolean; upcoming: boolean }> {
+  const off = await offerForCycle(currentCycle(now));
+  if (isOfferLive(off, now)) return { offer: off, live: true, upcoming: false };
+  if (isOfferUpcoming(off, now)) return { offer: off, live: false, upcoming: true };
+  const next = await offerForCycle(nextCycle(currentCycle(now)));
+  return { offer: next, live: false, upcoming: true };
 }
 
 /* ------------------------------------------------------------------ */
