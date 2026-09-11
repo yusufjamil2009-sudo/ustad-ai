@@ -502,7 +502,7 @@ export async function answerTournament(input: {
   if (question["selected_index"] === null) {
     const chosen = Math.max(0, Math.min(3, Math.floor(Number(input.optionIndex))));
     const correct = chosen === Number(question["correct_index"]);
-    await sdb()
+    const { data: claimed } = await sdb()
       .from(QUESTIONS)
       .update({
         selected_index: chosen,
@@ -510,7 +510,14 @@ export async function answerTournament(input: {
         answered_at: new Date().toISOString(),
       })
       .eq("id", question["id"])
-      .is("selected_index", null);
+      .is("selected_index", null)
+      .select()
+      .maybeSingle();
+    if (!claimed) {
+      // Race condition: question was already answered by another request.
+      // Reload and return current state without error.
+      return tournamentState({ token: input.token, kind });
+    }
   }
 
   const rows = await questionsOf(input.attemptId);
