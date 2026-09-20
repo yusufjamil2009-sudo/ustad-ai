@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { GamesError } from "@/components/games/GamesError";
 import { ResultScreen } from "@/components/games/ResultScreen";
 import { DIFFICULTIES, getGame, PLAYER_SLOTS } from "@/lib/games/config";
+import { useProgressReporter } from "@/lib/games/daily-client";
 import { recordAnswer } from "@/lib/games/engine";
 import { clearGame, saveGame } from "@/lib/games/persist";
 import { useGameRuntime } from "@/lib/games/runtime";
@@ -55,6 +56,10 @@ export function GameplayScreen({
   const [finished, setFinished] = useState(resumeFinished);
   const [seconds, setSeconds] = useState(initial.timerSeconds ?? 0);
   const lockRef = useRef(false);
+  // Daily attempt reporting. A question counts as completed only once EVERY
+  // active player has submitted (or the solo timer hit 00:00). The backend
+  // consumes the daily attempt at 2 completed questions.
+  const reportProgress = useProgressReporter(initial.gameId, initial.sessionId);
 
   const slot = runtime.slots[index];
   const ready = slot?.status === "ready" && !!slot.question;
@@ -95,6 +100,7 @@ export function GameplayScreen({
     const isLastPlayer = playerTurn >= session.players.length - 1;
     if (isLastPlayer) {
       setRevealed(true);
+      reportProgress(index + 1);
     } else {
       // Same question, same options — only the active player changes.
       setPlayerTurn((p) => p + 1);

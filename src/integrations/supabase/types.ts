@@ -3971,6 +3971,53 @@ export type Database = {
           },
         ]
       }
+      ustad_game_daily: {
+        Row: {
+          completed_questions: number
+          daily_date: string
+          game_id: string
+          guest_id: string
+          id: string
+          lock_triggered_at: string | null
+          session_id: string | null
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_questions?: number
+          daily_date: string
+          game_id: string
+          guest_id: string
+          id?: string
+          lock_triggered_at?: string | null
+          session_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_questions?: number
+          daily_date?: string
+          game_id?: string
+          guest_id?: string
+          id?: string
+          lock_triggered_at?: string | null
+          session_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ustad_game_daily_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ustad_login_attempts: {
         Row: {
           created_at: string
@@ -4440,12 +4487,36 @@ export type Database = {
           username: string
         }[]
       }
+      ustad_game_daily_progress: {
+        Args: {
+          p_completed: number
+          p_game_id: string
+          p_guest_id: string
+          p_session_id: string
+        }
+        Returns: {
+          out_completed: number
+          out_date: string
+          out_locked: boolean
+          out_status: string
+        }[]
+      }
+      ustad_game_daily_start: {
+        Args: { p_game_id: string; p_guest_id: string; p_session_id: string }
+        Returns: {
+          out_completed: number
+          out_date: string
+          out_locked: boolean
+          out_status: string
+        }[]
+      }
       ustad_issue_fresh_session: {
         Args: { p_guest_id: string }
         Returns: {
           jti: string
         }[]
       }
+      ustad_ist_date: { Args: never; Returns: string }
       ustad_refresh_session: {
         Args: { p_guest_id: string; p_jti: string }
         Returns: {

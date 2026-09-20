@@ -169,6 +169,20 @@
       "when": 1789875899984,
       "tag": "0023_create_github_integration",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789907921967,
+      "tag": "0024_create_ustad_game_daily",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789908448483,
+      "tag": "0025_fix_game_daily_fn_outputs",
+      "breakpoints": true
     }
   ]
 }
