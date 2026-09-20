@@ -171,13 +171,11 @@ export function looksLikePdf(bytes: Uint8Array, contentType: string | null): boo
   return true;
 }
 
-/** Parse PDF bytes into text using unpdf (same engine USTAD already uses). */
+/** Parse PDF bytes into text using the shared Worker-compatible engine. */
 async function pdfToText(bytes: Uint8Array): Promise<{ text: string; pageCount: number }> {
-  const { getDocumentProxy, extractText } = await import("unpdf");
-  const doc = await getDocumentProxy(bytes);
-  const { text } = await extractText(doc, { mergePages: true });
-  const pages = (doc as unknown as { numPages?: number })?.numPages ?? 0;
-  return { text: String(text ?? ""), pageCount: pages };
+  const { extractPdfText } = await import("../pdf-text.server");
+  const extracted = await extractPdfText(bytes);
+  return { text: extracted.text, pageCount: extracted.pageCount };
 }
 
 /**

@@ -646,10 +646,9 @@ export async function saveAttachment(
   let extracted: string | null = null;
   if (kind === "pdf") {
     try {
-      const { extractText, getDocumentProxy } = await import("unpdf");
-      const doc = await getDocumentProxy(bytes);
-      const { text } = await extractText(doc, { mergePages: true });
-      extracted = String(text).slice(0, 20000);
+      const { extractPdfText } = await import("./pdf-text.server");
+      const result = await extractPdfText(bytes);
+      extracted = result.text.slice(0, 20000);
     } catch {
       extracted = null;
     }
