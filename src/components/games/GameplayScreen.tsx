@@ -164,7 +164,7 @@ export function GameplayScreen({
   return (
     <div className="mx-auto w-full max-w-md">
       <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={onExit}>
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={exit}>
           <ArrowLeft className="size-4" /> Exit
         </Button>
         {session.timerEnabled ? (
