@@ -4495,20 +4495,19 @@ export type Database = {
           p_session_id: string
         }
         Returns: {
-          completed_questions: number
-          daily_date: string
-          locked: boolean
-          status: string
+          out_completed: number
+          out_date: string
+          out_locked: boolean
+          out_status: string
         }[]
       }
       ustad_game_daily_start: {
         Args: { p_game_id: string; p_guest_id: string; p_session_id: string }
         Returns: {
-          completed_questions: number
-          daily_date: string
-          locked: boolean
-          session_id: string
-          status: string
+          out_completed: number
+          out_date: string
+          out_locked: boolean
+          out_status: string
         }[]
       }
       ustad_issue_fresh_session: {
