@@ -1,11 +1,12 @@
 /**
  * Process an uploaded attachment into a source-grounded teaching session.
- * Reuses saveAttachment storage, unpdf, and OCR.space — no second parser.
+ * Reuses saveAttachment storage, the shared PDF parser, and OCR.space.
  */
 import { getAttachment, attachmentAsDataUrl } from "../data.server";
 import { requireGuest } from "../guest.server";
 import { usableProviders } from "../api-manager.server";
 import { ocrImage } from "../provider-clients.server";
+import { extractPdfText } from "../pdf-text.server";
 import type { LessonLang } from "../classroom2d/lesson";
 import {
   buildDocumentLessonFromText,
@@ -24,18 +25,8 @@ function decodeDataUrl(dataUrl: string): Uint8Array {
 }
 
 async function extractPdfPages(bytes: Uint8Array): Promise<{ pages: PageStat[]; text: string }> {
-  const { extractText, getDocumentProxy } = await import("unpdf");
-  const doc = await getDocumentProxy(bytes);
-  try {
-    const raw = await extractText(doc, { mergePages: false });
-    const chunks = Array.isArray(raw.text) ? raw.text : [String(raw.text ?? "")];
-    const pages = pagesFromExtracted(chunks);
-    return { pages, text: chunks.map((t, i) => `\nPage ${i + 1}\n${t}`).join("\n") };
-  } catch {
-    const raw = await extractText(doc, { mergePages: true });
-    const text = String(raw.text ?? "");
-    return { pages: pagesFromExtracted(text), text };
-  }
+  const extracted = await extractPdfText(bytes);
+  return { pages: pagesFromExtracted(extracted.pages), text: extracted.text };
 }
 
 export async function processUploadedDocument(
