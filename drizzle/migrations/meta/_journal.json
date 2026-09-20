@@ -1,0 +1,174 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788503138841,
+      "tag": "0000_ustad_core_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788503175603,
+      "tag": "0001_ustad_curriculum_and_book_knowledge",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788503208951,
+      "tag": "0002_gallery_20260902071134",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788503244264,
+      "tag": "0003_crorepati_part1_20260902120000",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788503291003,
+      "tag": "0004_mega_tournament_part2_20260902130000",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788570815193,
+      "tag": "0005_crorepati_entry_part3",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788570857492,
+      "tag": "0006_trophy_achievements_part4",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788570895524,
+      "tag": "0007_certificates_part5",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788570944383,
+      "tag": "0008_master_event_engine_part6",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788659198547,
+      "tag": "0009_coin_economy_shop_part7",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788659218893,
+      "tag": "0010_profile_avatar_part8",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788659257263,
+      "tag": "0011_notification_center_part9",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788659278523,
+      "tag": "0012_event_language_snapshot_part7hotfix",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789569311312,
+      "tag": "0013_ustad_core_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789569334840,
+      "tag": "0014_ustad_curriculum_and_book_knowledge",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789569371672,
+      "tag": "0015_gallery",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789569414533,
+      "tag": "0016_crorepati_part1",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789569468225,
+      "tag": "0017_mega_tournament_part2",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789569481690,
+      "tag": "0018_crorepati_entry_part3",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789569560489,
+      "tag": "0019_trophy_certificates_master_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789569602521,
+      "tag": "0020_event_language_snapshot_hotfix",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789569733059,
+      "tag": "0021_identity_tournament_rank_offers",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789615895234,
+      "tag": "0022_revoke_public_execute_security_definer",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789875899984,
+      "tag": "0023_create_github_integration",
+      "breakpoints": true
+    }
+  ]
+}
