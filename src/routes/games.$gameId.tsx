@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { GamesError } from "@/components/games/GamesError";
@@ -15,6 +15,7 @@ import {
   type PlayerCount,
 } from "@/lib/games/config";
 import { createSession } from "@/lib/games/engine";
+import { clearGame, loadGame } from "@/lib/games/persist";
 import { setActiveSession } from "@/lib/games/store";
 import type { GameSession } from "@/lib/games/types";
 
@@ -55,7 +56,21 @@ function PreGamePage() {
   const [playerCount, setPlayerCount] = useState<PlayerCount>(1);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [session, setSession] = useState<GameSession | null>(null);
+  const [resume, setResume] = useState<{ index: number; finished: boolean }>({
+    index: 0,
+    finished: false,
+  });
   const started = session !== null;
+
+  // Refresh protection: an interrupted game for THIS game id resumes exactly
+  // where it stopped, with every stored answer intact.
+  useEffect(() => {
+    const saved = loadGame(gameId);
+    if (!saved) return;
+    setSession(saved.session);
+    setActiveSession(saved.session);
+    setResume({ index: saved.index, finished: saved.finished });
+  }, [gameId]);
 
   if (!game) {
     return (
@@ -71,11 +86,14 @@ function PreGamePage() {
   const startGame = () => {
     // Only the SELECTED game gets a session. No other game is touched.
     const fresh = createSession({ gameId: game.id, playerCount, difficulty });
+    clearGame();
+    setResume({ index: 0, finished: false });
     setActiveSession(fresh);
     setSession(fresh);
   };
 
   const exitGame = () => {
+    clearGame();
     setActiveSession(null);
     setSession(null);
     void navigate({ to: "/games" });
@@ -85,7 +103,12 @@ function PreGamePage() {
     return (
       <AppShell>
         <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
-          <GameplayScreen session={session} onExit={exitGame} />
+          <GameplayScreen
+            session={session}
+            resumeIndex={resume.index}
+            resumeFinished={resume.finished}
+            onExit={exitGame}
+          />
         </div>
       </AppShell>
     );
