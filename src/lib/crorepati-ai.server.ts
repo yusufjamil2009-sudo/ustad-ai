@@ -304,6 +304,23 @@ export function quizDevicePlan(input: QuizPromptInput): {
   return { system, batches };
 }
 
+/** Real batch state reported while the question set is being prepared. */
+export type QuizBatchState =
+  | "pending"
+  | "generating"
+  | "factChecking"
+  | "completed"
+  | "failed";
+
+export type QuizPrepEvent =
+  | { slots: number }
+  | {
+      slot: number;
+      state: QuizBatchState;
+      generated?: number;
+      verified?: number;
+    };
+
 export async function generateQuizSet(input: {
   guestId: string;
   language: Language;
@@ -322,6 +339,12 @@ export async function generateQuizSet(input: {
    * requested from the existing API Manager providers.
    */
   deviceBatches?: string[] | undefined;
+  /**
+   * Real preparation progress. Called as each independent batch pipeline moves
+   * through generating → factChecking → completed/failed, so the UI can show
+   * the ACTUAL state instead of a timed animation.
+   */
+  onProgress?: (e: QuizPrepEvent) => void;
 }): Promise<{ questions: GeneratedQuestion[]; provider: string; model: string }> {
   const count = Math.max(1, Math.floor(input.count));
   const { system, buildUser } = quizPromptParts({
@@ -363,22 +386,29 @@ export async function generateQuizSet(input: {
   }
 
   /*
-   * Questions are asked for in SMALL BATCHES instead of one big request: a
-   * single large response can be cut off by the provider's output limit, which
-   * used to leave the set incomplete. Each response now stays comfortably
-   * small, and the loop keeps requesting until the full set exists.
+   * PARALLEL PREPARATION.
+   *
+   * Questions are asked for in SMALL BATCHES (a single large response can be
+   * cut off by the provider's output limit). The batches no longer wait for
+   * each other: all of them are launched at the SAME TIME and each one runs its
+   * own generation → fact-check pipeline. A batch that fails never destroys the
+   * batches that succeeded; whatever is still missing afterwards is topped up,
+   * and only the missing amount is requested.
    */
   const BATCH = QUIZ_BATCH;
-  const maxRounds = Math.ceil(count / BATCH) * 3 + 4;
 
-  for (let round = 0; round < maxRounds && collected.length < count; round++) {
-    const need = Math.min(BATCH, count - collected.length);
+  /** One independent pipeline: generate `need` questions, then fact-check them. */
+  const runBatch = async (
+    slot: number,
+    need: number,
+    round: number,
+  ): Promise<GeneratedQuestion[]> => {
+    input.onProgress?.({ slot, state: "generating" });
     const user = buildUser(
       need,
       round,
       collected.map((q) => q.question),
     );
-
 
     const available = await usableProviders(input.guestId);
     const decision = route({
@@ -406,20 +436,70 @@ export async function generateQuizSet(input: {
       const parsed = parseJsonLoose<{ questions?: RawQ[] } | RawQ[]>(res.text);
       rows = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
     } catch {
-      // Truncated response: keep whatever complete questions did arrive and
-      // let the next round request the rest. Never treat it as a full set.
+      // Truncated response: keep whatever complete questions did arrive.
       rows = salvageJsonObjects(res.text) as RawQ[];
     }
-    if (!rows.length) continue;
+    if (!rows.length) {
+      input.onProgress?.({ slot, state: "failed", verified: 0 });
+      return [];
+    }
 
+    // `clean` runs synchronously against the SHARED `seen` set, so two batches
+    // that land at the same time can never contribute the same question.
     const cleaned = clean(rows, seen);
-    // Fact-check pass: wrong or unverifiable answers never reach the player.
+    input.onProgress?.({ slot, state: "factChecking", generated: cleaned.length });
+    // Fact-check pass: unchanged, and independent per batch.
     const verified = await verifyAnswers(cleaned, {
       guestId: input.guestId,
       language: input.language,
     });
-    collected.push(...verified);
+    input.onProgress?.({
+      slot,
+      state: verified.length ? "completed" : "failed",
+      generated: cleaned.length,
+      verified: verified.length,
+    });
+    return verified;
+  };
+
+  const collect = async (slots: Array<{ slot: number; need: number; round: number }>) => {
+    const settled = await Promise.allSettled(
+      slots.map((s) => runBatch(s.slot, s.need, s.round)),
+    );
+    for (const [i, r] of settled.entries()) {
+      if (r.status === "fulfilled") collected.push(...r.value);
+      else input.onProgress?.({ slot: slots[i]!.slot, state: "failed", verified: 0 });
+    }
+  };
+
+  /* Wave 1 — every batch starts concurrently. */
+  const missingNow = Math.max(0, count - collected.length);
+  const firstWave: Array<{ slot: number; need: number; round: number }> = [];
+  for (let done = 0, slot = 0; done < missingNow; done += BATCH, slot++) {
+    firstWave.push({ slot, need: Math.min(BATCH, missingNow - done), round: slot });
   }
+  input.onProgress?.({ slots: firstWave.length });
+  await collect(firstWave);
+
+  /*
+   * TOP-UP — only what is actually missing, never a full restart. Successful
+   * batches are kept as-is and are never fact-checked again.
+   */
+  const MAX_TOPUP_WAVES = 3;
+  for (let wave = 0; wave < MAX_TOPUP_WAVES && collected.length < count; wave++) {
+    const missing = count - collected.length;
+    const slots: Array<{ slot: number; need: number; round: number }> = [];
+    for (let done = 0, i = 0; done < missing; done += BATCH, i++) {
+      slots.push({
+        slot: firstWave.length + i,
+        need: Math.min(BATCH, missing - done),
+        round: firstWave.length + wave * 4 + i,
+      });
+    }
+    input.onProgress?.({ slots: firstWave.length + slots.length });
+    await collect(slots);
+  }
+
 
   if (collected.length < count) {
     throw new Error(
