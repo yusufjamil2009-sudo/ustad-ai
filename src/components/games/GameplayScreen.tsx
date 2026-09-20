@@ -29,19 +29,30 @@ function mmss(total: number): string {
 
 export function GameplayScreen({
   session: initial,
+  resumeIndex = 0,
+  resumeFinished = false,
   onExit,
 }: {
   session: GameSession;
+  resumeIndex?: number;
+  resumeFinished?: boolean;
   onExit: () => void;
 }) {
   const game = getGame(initial.gameId);
   const runtime = useGameRuntime(initial);
   const [session, setSession] = useState<GameSession>(initial);
-  const [index, setIndex] = useState(0);
-  const [playerTurn, setPlayerTurn] = useState(0);
+  const [index, setIndex] = useState(resumeIndex);
+  const [playerTurn, setPlayerTurn] = useState(() => {
+    // After a refresh the turn resumes with the first player who has not
+    // answered the current question — no duplicate answer is ever created.
+    const q = initial.questions[resumeIndex];
+    if (!q) return 0;
+    const answered = initial.answers.filter((a) => a.questionId === q.questionId).length;
+    return Math.min(answered, initial.players.length - 1);
+  });
   const [selected, setSelected] = useState<OptionKey | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [finished, setFinished] = useState(false);
+  const [finished, setFinished] = useState(resumeFinished);
   const [seconds, setSeconds] = useState(initial.timerSeconds ?? 0);
   const lockRef = useRef(false);
 
