@@ -9,8 +9,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GamesError } from "@/components/games/GamesError";
+import { ResultScreen } from "@/components/games/ResultScreen";
 import { DIFFICULTIES, getGame, PLAYER_SLOTS } from "@/lib/games/config";
 import { recordAnswer } from "@/lib/games/engine";
+import { clearGame, saveGame } from "@/lib/games/persist";
 import { useGameRuntime } from "@/lib/games/runtime";
 import { OPTION_KEYS, type AnswerResult, type GameSession, type OptionKey } from "@/lib/games/types";
 
