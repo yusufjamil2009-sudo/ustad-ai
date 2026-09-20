@@ -304,6 +304,23 @@ export function quizDevicePlan(input: QuizPromptInput): {
   return { system, batches };
 }
 
+/** Real batch state reported while the question set is being prepared. */
+export type QuizBatchState =
+  | "pending"
+  | "generating"
+  | "factChecking"
+  | "completed"
+  | "failed";
+
+export type QuizPrepEvent =
+  | { slots: number }
+  | {
+      slot: number;
+      state: QuizBatchState;
+      generated?: number;
+      verified?: number;
+    };
+
 export async function generateQuizSet(input: {
   guestId: string;
   language: Language;
