@@ -183,6 +183,13 @@
       "when": 1789908448483,
       "tag": "0025_fix_game_daily_fn_outputs",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789908567361,
+      "tag": "0026_create_crorepati_prep_progress",
+      "breakpoints": true
     }
   ]
 }

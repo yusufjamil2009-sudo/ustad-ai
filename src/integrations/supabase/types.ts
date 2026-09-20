@@ -766,6 +766,47 @@ export type Database = {
           },
         ]
       }
+      crorepati_prep_progress: {
+        Row: {
+          batches: Json
+          guest_id: string
+          phase: string
+          run_id: string
+          started_at: string
+          total: number
+          updated_at: string
+          verified: number
+        }
+        Insert: {
+          batches?: Json
+          guest_id: string
+          phase?: string
+          run_id: string
+          started_at?: string
+          total?: number
+          updated_at?: string
+          verified?: number
+        }
+        Update: {
+          batches?: Json
+          guest_id?: string
+          phase?: string
+          run_id?: string
+          started_at?: string
+          total?: number
+          updated_at?: string
+          verified?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crorepati_prep_progress_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: true
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crorepati_rewards: {
         Row: {
           coins: number
