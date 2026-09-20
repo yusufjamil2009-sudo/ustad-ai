@@ -19,6 +19,26 @@ export type GameId =
 
 export type PlayerCount = 1 | 2 | 3 | 4;
 
+/* ------------------------------------------------------------- difficulty */
+
+export type Difficulty = "easy" | "medium" | "hard" | "god";
+
+export type DifficultyConfig = { id: Difficulty; name: string; hint: string };
+
+/** Difficulty is real: it changes what the generator is asked to produce. */
+export const DIFFICULTIES: DifficultyConfig[] = [
+  { id: "easy", name: "Easy", hint: "Simple, direct thinking." },
+  { id: "medium", name: "Medium", hint: "Two steps and a few clues." },
+  { id: "hard", name: "Hard", hint: "Multi-step deduction with traps." },
+  { id: "god", name: "God Level", hint: "Layered clues and deep reasoning." },
+];
+
+export const DEFAULT_DIFFICULTY: Difficulty = "easy";
+
+export function isDifficulty(value: string): value is Difficulty {
+  return DIFFICULTIES.some((d) => d.id === value);
+}
+
 export type GameConfig = {
   id: GameId;
   name: string;

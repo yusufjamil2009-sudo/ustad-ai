@@ -3,7 +3,7 @@
  *
  * Reusable across all 9 games. No game-specific shapes exist anywhere.
  */
-import type { GameId, PlayerColor, PlayerCount, PlayerSlotId } from "./config";
+import type { Difficulty, GameId, PlayerColor, PlayerCount, PlayerSlotId } from "./config";
 
 export type OptionKey = "A" | "B" | "C" | "D";
 export const OPTION_KEYS: OptionKey[] = ["A", "B", "C", "D"];
@@ -20,6 +20,7 @@ export type GameQuestion = {
   /** Exactly one of A/B/C/D. Position is randomised, never fixed to A or B. */
   correctAnswer: OptionKey;
   explanation: string;
+  difficulty: Difficulty;
   status: QuestionStatus;
   /** Retry bookkeeping for individual-question regeneration. */
   attempts: number;
@@ -50,11 +51,19 @@ export type SessionPlayer = {
   color: PlayerColor;
 };
 
-export type SessionStatus = "created" | "generating" | "active" | "completed" | "abandoned";
+export type SessionStatus =
+  | "created"
+  | "generating"
+  | "loading"
+  | "playing"
+  | "active"
+  | "completed"
+  | "abandoned";
 
 export type GameSession = {
   sessionId: string;
   gameId: GameId;
+  difficulty: Difficulty;
   playerCount: PlayerCount;
   players: SessionPlayer[];
   currentPlayerIndex: number;
