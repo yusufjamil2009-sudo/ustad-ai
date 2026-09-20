@@ -12,6 +12,8 @@ import {
   getGame,
   playersFor,
   timerFor,
+  DEFAULT_DIFFICULTY,
+  type Difficulty,
   type GameId,
   type PlayerCount,
 } from "./config";
@@ -35,9 +37,17 @@ function uid(prefix: string): string {
 
 /* ------------------------------------------------------------- session ---- */
 
-export type SessionConfig = { gameId: GameId; playerCount: PlayerCount };
+export type SessionConfig = {
+  gameId: GameId;
+  playerCount: PlayerCount;
+  difficulty?: Difficulty;
+};
 
-export function createSession({ gameId, playerCount }: SessionConfig): GameSession {
+export function createSession({
+  gameId,
+  playerCount,
+  difficulty = DEFAULT_DIFFICULTY,
+}: SessionConfig): GameSession {
   const game = getGame(gameId);
   if (!game) throw new Error("unknown-game");
 
@@ -57,6 +67,7 @@ export function createSession({ gameId, playerCount }: SessionConfig): GameSessi
       gameId,
       batchId: batchIdForQuestion(n, game.batchSize),
       questionNumber: n,
+      difficulty,
       status: "pending",
       attempts: 0,
     });
@@ -67,6 +78,7 @@ export function createSession({ gameId, playerCount }: SessionConfig): GameSessi
   return {
     sessionId: uid("gs"),
     gameId,
+    difficulty,
     playerCount,
     players: playersFor(playerCount).map((p) => ({ id: p.id, name: p.name, color: p.color })),
     currentPlayerIndex: 0,

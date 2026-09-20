@@ -9,6 +9,7 @@
  */
 import * as fns from "./ustad.functions";
 import * as examFns from "./exam.functions";
+import * as gameFns from "./games.functions";
 import { currentToken, recoverGuest } from "./ustad-client";
 
 const RECOVERABLE = /invalid guest session|guest session expired|guest signing secret/i;
@@ -143,3 +144,6 @@ export const combineResultsFn = wrap(examFns.combineResultsFn);
 export const timetableDocumentFn = wrap(examFns.timetableDocumentFn);
 export const questionPaperDocumentFn = wrap(examFns.questionPaperDocumentFn);
 export const resultDocumentFn = wrap(examFns.resultDocumentFn);
+
+/* ---- games library ---- */
+export const gamesGenerateFn = wrap(gameFns.gamesGenerateFn);

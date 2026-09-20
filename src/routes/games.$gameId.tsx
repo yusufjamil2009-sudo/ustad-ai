@@ -3,10 +3,20 @@ import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { GamesError } from "@/components/games/GamesError";
+import { GameplayScreen } from "@/components/games/GameplayScreen";
 import { Button } from "@/components/ui/button";
-import { getGame, playersFor, timerFor, type PlayerCount } from "@/lib/games/config";
+import {
+  DEFAULT_DIFFICULTY,
+  DIFFICULTIES,
+  getGame,
+  playersFor,
+  timerFor,
+  type Difficulty,
+  type PlayerCount,
+} from "@/lib/games/config";
 import { createSession } from "@/lib/games/engine";
 import { setActiveSession } from "@/lib/games/store";
+import type { GameSession } from "@/lib/games/types";
 
 export const Route = createFileRoute("/games/$gameId")({
   head: () => ({
@@ -43,7 +53,9 @@ function PreGamePage() {
   const navigate = useNavigate();
   const game = getGame(gameId);
   const [playerCount, setPlayerCount] = useState<PlayerCount>(1);
-  const [started, setStarted] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
+  const [session, setSession] = useState<GameSession | null>(null);
+  const started = session !== null;
 
   if (!game) {
     return (
@@ -58,9 +70,26 @@ function PreGamePage() {
 
   const startGame = () => {
     // Only the SELECTED game gets a session. No other game is touched.
-    setActiveSession(createSession({ gameId: game.id, playerCount }));
-    setStarted(true);
+    const fresh = createSession({ gameId: game.id, playerCount, difficulty });
+    setActiveSession(fresh);
+    setSession(fresh);
   };
+
+  const exitGame = () => {
+    setActiveSession(null);
+    setSession(null);
+    void navigate({ to: "/games" });
+  };
+
+  if (session) {
+    return (
+      <AppShell>
+        <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
+          <GameplayScreen session={session} onExit={exitGame} />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -82,6 +111,38 @@ function PreGamePage() {
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-muted px-4 py-1.5 text-sm font-medium">
               {game.totalQuestions} Questions
             </div>
+
+            <h2 className="mt-6 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+              Choose Difficulty
+            </h2>
+            <div
+              className="mt-3 grid grid-cols-2 gap-2"
+              role="radiogroup"
+              aria-label="Choose difficulty"
+            >
+              {DIFFICULTIES.map((level) => {
+                const active = level.id === difficulty;
+                return (
+                  <button
+                    key={level.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setDifficulty(level.id)}
+                    className={`min-h-12 rounded-xl border px-3 text-sm font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {level.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {DIFFICULTIES.find((d) => d.id === difficulty)?.hint}
+            </p>
 
             <h2 className="mt-6 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
               Choose Players
@@ -130,21 +191,9 @@ function PreGamePage() {
                 : "No timer — take all the time you need."}
             </p>
 
-            {started ? (
-              <div className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm">
-                <p className="font-medium">Getting your questions ready…</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Your {game.name} game is set up for {playerCount === 1 ? "solo play" : `${playerCount} players`}.
-                </p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setStarted(false)}>
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <Button className="mt-5 min-h-12 w-full text-base" onClick={startGame}>
-                START GAME
-              </Button>
-            )}
+            <Button className="mt-5 min-h-12 w-full text-base" onClick={startGame}>
+              START GAME
+            </Button>
           </section>
         </div>
       </div>
