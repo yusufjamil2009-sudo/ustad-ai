@@ -122,6 +122,21 @@ export function GameplayScreen({
     setIndex((i) => i + 1);
   };
 
+  /* ------------------------------------------- refresh-safe session state -- */
+  const persistedSession = useMemo(
+    () => ({ ...session, questions: runtime.slots, currentQuestionIndex: index }),
+    [session, runtime.slots, index],
+  );
+
+  useEffect(() => {
+    saveGame({ session: persistedSession, index, finished });
+  }, [persistedSession, index, finished]);
+
+  const exit = () => {
+    clearGame();
+    onExit();
+  };
+
   const myAnswer = useMemo(() => {
     if (!slot?.questionId) return null;
     const player = session.players[0];
