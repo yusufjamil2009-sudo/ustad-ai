@@ -115,7 +115,13 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
     };
 
     const runBatch = async (batchId: number, questionNumbers: number[]) => {
-      let missing = [...questionNumbers];
+      // A restored session already holds validated questions — never regenerate
+      // (or duplicate) a question that is already ready.
+      const alreadyReady = session.questions.filter((q) => q.status === "ready");
+      for (const q of alreadyReady) if (q.question) accepted.push({ question: q.question });
+      let missing = questionNumbers.filter(
+        (n) => !alreadyReady.some((q) => q.questionNumber === n),
+      );
       for (let attempt = 0; attempt < MAX_ATTEMPTS && missing.length && !cancelled.current; attempt += 1) {
         mark(missing, attempt === 0 ? "generating" : "retrying");
         try {
