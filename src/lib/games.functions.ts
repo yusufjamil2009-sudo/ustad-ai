@@ -129,9 +129,9 @@ export const gamesDailyStartFn = createServerFn({ method: "POST" })
     if (error) throw new Error("daily-status-unavailable");
     const row = Array.isArray(data) ? data[0] : data;
     return {
-      locked: Boolean(row?.locked),
-      date: String(row?.daily_date ?? ""),
-      completedQuestions: Number(row?.completed_questions ?? 0),
+      locked: Boolean(row?.out_locked),
+      date: String(row?.out_date ?? ""),
+      completedQuestions: Number(row?.out_completed ?? 0),
     };
   });
 
@@ -153,8 +153,8 @@ export const gamesDailyProgressFn = createServerFn({ method: "POST" })
     if (error) throw new Error("daily-status-unavailable");
     const row = Array.isArray(data) ? data[0] : data;
     return {
-      locked: Boolean(row?.locked),
-      date: String(row?.daily_date ?? ""),
-      completedQuestions: Number(row?.completed_questions ?? 0),
+      locked: Boolean(row?.out_locked),
+      date: String(row?.out_date ?? ""),
+      completedQuestions: Number(row?.out_completed ?? 0),
     };
   });
