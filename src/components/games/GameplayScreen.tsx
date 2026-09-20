@@ -150,20 +150,9 @@ export function GameplayScreen({
   if (!game) return <GamesError reset={onExit} />;
 
   if (finished) {
-    return (
-      <div className="mx-auto w-full max-w-md px-1 py-6 text-center">
-        <span className="text-4xl" aria-hidden="true">
-          {game.icon}
-        </span>
-        <h1 className="mt-2 text-xl font-semibold">Challenge complete</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You finished all {session.totalQuestions} {game.name} questions.
-        </p>
-        <Button className="mt-5 min-h-12 w-full" onClick={onExit}>
-          Back to Games
-        </Button>
-      </div>
-    );
+    // Real scores, real winner, real review — computed from the stored answers
+    // only after all 30 questions are done.
+    return <ResultScreen session={persistedSession} slots={runtime.slots} onExit={exit} />;
   }
 
   if (runtime.error && runtime.readyCount === 0) {
