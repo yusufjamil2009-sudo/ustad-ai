@@ -147,3 +147,6 @@ export const resultDocumentFn = wrap(examFns.resultDocumentFn);
 
 /* ---- games library ---- */
 export const gamesGenerateFn = wrap(gameFns.gamesGenerateFn);
+export const gamesDailyStatusFn = wrap(gameFns.gamesDailyStatusFn);
+export const gamesDailyStartFn = wrap(gameFns.gamesDailyStartFn);
+export const gamesDailyProgressFn = wrap(gameFns.gamesDailyProgressFn);
