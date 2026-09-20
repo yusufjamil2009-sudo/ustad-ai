@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { GamesError } from "@/components/games/GamesError";
 import { GameplayScreen } from "@/components/games/GameplayScreen";
@@ -14,6 +14,12 @@ import {
   type Difficulty,
   type PlayerCount,
 } from "@/lib/games/config";
+import {
+  claimDailyStart,
+  LOCKED_LABEL,
+  useDailyStatus,
+  VERIFY_ERROR,
+} from "@/lib/games/daily-client";
 import { createSession } from "@/lib/games/engine";
 import { clearGame, loadGame } from "@/lib/games/persist";
 import { setActiveSession } from "@/lib/games/store";
@@ -61,6 +67,10 @@ function PreGamePage() {
     finished: false,
   });
   const started = session !== null;
+  const daily = useDailyStatus();
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [lockedNow, setLockedNow] = useState(false);
 
   // Refresh protection: an interrupted game for THIS game id resumes exactly
   // where it stopped, with every stored answer intact.
@@ -83,13 +93,31 @@ function PreGamePage() {
   const timer = timerFor(playerCount);
   const roster = playersFor(playerCount);
 
-  const startGame = () => {
+  const startGame = async () => {
+    if (starting) return;
+    setStarting(true);
+    setStartError(null);
     // Only the SELECTED game gets a session. No other game is touched.
     const fresh = createSession({ gameId: game.id, playerCount, difficulty });
+    try {
+      // The backend decides — a second match on the same IST day is rejected
+      // and no duplicate daily record can be created.
+      const claim = await claimDailyStart(game.id, fresh.sessionId);
+      if (claim.locked) {
+        setLockedNow(true);
+        setStarting(false);
+        return;
+      }
+    } catch {
+      setStartError(VERIFY_ERROR);
+      setStarting(false);
+      return;
+    }
     clearGame();
     setResume({ index: 0, finished: false });
     setActiveSession(fresh);
     setSession(fresh);
+    setStarting(false);
   };
 
   const exitGame = () => {
@@ -109,6 +137,54 @@ function PreGamePage() {
             resumeFinished={resume.finished}
             onExit={exitGame}
           />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const locked = lockedNow || daily.states?.[game.id] === "locked";
+
+  if (daily.error && !session) {
+    return (
+      <AppShell>
+        <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
+          <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-5 text-center shadow-sm">
+            <p className="text-sm text-muted-foreground">{daily.error}</p>
+            <Button className="mt-4 min-h-11 w-full" onClick={daily.refresh}>
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (locked) {
+    return (
+      <AppShell>
+        <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
+          <div className="mx-auto w-full max-w-md">
+            <Button asChild variant="ghost" size="sm" className="-ml-2 mb-3">
+              <Link to="/games">
+                <ArrowLeft className="size-4" /> Games
+              </Link>
+            </Button>
+            <section className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+              <span className="text-4xl" aria-hidden="true">
+                {game.icon}
+              </span>
+              <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">{game.name}</h1>
+              <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-muted px-4 py-1.5 text-sm font-medium">
+                <Lock className="size-4" aria-hidden="true" /> {LOCKED_LABEL}
+              </p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                This game opens again tomorrow. Your other games are still ready to play.
+              </p>
+              <Button asChild className="mt-5 min-h-12 w-full">
+                <Link to="/games">Back to Games</Link>
+              </Button>
+            </section>
+          </div>
         </div>
       </AppShell>
     );
@@ -214,8 +290,16 @@ function PreGamePage() {
                 : "No timer — take all the time you need."}
             </p>
 
-            <Button className="mt-5 min-h-12 w-full text-base" onClick={startGame}>
-              START GAME
+            {startError ? (
+              <p className="mt-4 text-sm text-destructive">{startError}</p>
+            ) : null}
+
+            <Button
+              className="mt-5 min-h-12 w-full text-base"
+              disabled={starting || daily.loading}
+              onClick={() => void startGame()}
+            >
+              {starting ? "STARTING…" : "START GAME"}
             </Button>
           </section>
         </div>
