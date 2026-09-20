@@ -9,8 +9,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GamesError } from "@/components/games/GamesError";
+import { ResultScreen } from "@/components/games/ResultScreen";
 import { DIFFICULTIES, getGame, PLAYER_SLOTS } from "@/lib/games/config";
 import { recordAnswer } from "@/lib/games/engine";
+import { clearGame, saveGame } from "@/lib/games/persist";
 import { useGameRuntime } from "@/lib/games/runtime";
 import { OPTION_KEYS, type AnswerResult, type GameSession, type OptionKey } from "@/lib/games/types";
 
@@ -27,19 +29,30 @@ function mmss(total: number): string {
 
 export function GameplayScreen({
   session: initial,
+  resumeIndex = 0,
+  resumeFinished = false,
   onExit,
 }: {
   session: GameSession;
+  resumeIndex?: number;
+  resumeFinished?: boolean;
   onExit: () => void;
 }) {
   const game = getGame(initial.gameId);
   const runtime = useGameRuntime(initial);
   const [session, setSession] = useState<GameSession>(initial);
-  const [index, setIndex] = useState(0);
-  const [playerTurn, setPlayerTurn] = useState(0);
+  const [index, setIndex] = useState(resumeIndex);
+  const [playerTurn, setPlayerTurn] = useState(() => {
+    // After a refresh the turn resumes with the first player who has not
+    // answered the current question — no duplicate answer is ever created.
+    const q = initial.questions[resumeIndex];
+    if (!q) return 0;
+    const answered = initial.answers.filter((a) => a.questionId === q.questionId).length;
+    return Math.min(answered, initial.players.length - 1);
+  });
   const [selected, setSelected] = useState<OptionKey | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [finished, setFinished] = useState(false);
+  const [finished, setFinished] = useState(resumeFinished);
   const [seconds, setSeconds] = useState(initial.timerSeconds ?? 0);
   const lockRef = useRef(false);
 
@@ -109,6 +122,21 @@ export function GameplayScreen({
     setIndex((i) => i + 1);
   };
 
+  /* ------------------------------------------- refresh-safe session state -- */
+  const persistedSession = useMemo(
+    () => ({ ...session, questions: runtime.slots, currentQuestionIndex: index }),
+    [session, runtime.slots, index],
+  );
+
+  useEffect(() => {
+    saveGame({ session: persistedSession, index, finished });
+  }, [persistedSession, index, finished]);
+
+  const exit = () => {
+    clearGame();
+    onExit();
+  };
+
   const myAnswer = useMemo(() => {
     if (!slot?.questionId) return null;
     const player = session.players[0];
@@ -122,20 +150,9 @@ export function GameplayScreen({
   if (!game) return <GamesError reset={onExit} />;
 
   if (finished) {
-    return (
-      <div className="mx-auto w-full max-w-md px-1 py-6 text-center">
-        <span className="text-4xl" aria-hidden="true">
-          {game.icon}
-        </span>
-        <h1 className="mt-2 text-xl font-semibold">Challenge complete</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You finished all {session.totalQuestions} {game.name} questions.
-        </p>
-        <Button className="mt-5 min-h-12 w-full" onClick={onExit}>
-          Back to Games
-        </Button>
-      </div>
-    );
+    // Real scores, real winner, real review — computed from the stored answers
+    // only after all 30 questions are done.
+    return <ResultScreen session={persistedSession} slots={runtime.slots} onExit={exit} />;
   }
 
   if (runtime.error && runtime.readyCount === 0) {
@@ -147,7 +164,7 @@ export function GameplayScreen({
   return (
     <div className="mx-auto w-full max-w-md">
       <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={onExit}>
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={exit}>
           <ArrowLeft className="size-4" /> Exit
         </Button>
         {session.timerEnabled ? (
