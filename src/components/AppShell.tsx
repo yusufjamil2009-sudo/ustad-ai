@@ -17,6 +17,7 @@ import {
   Crown,
   Sparkles,
   RotateCcw,
+  Gamepad2,
 } from "lucide-react";
 import { useGuest, shortId } from "@/lib/ustad-client";
 import {
@@ -47,6 +48,7 @@ const NAV = [
   { to: "/tournament", label: "Mystery", icon: Search },
   { to: "/god-tournament", label: "God Master", icon: Crown },
   { to: "/events", label: "Events", icon: CalendarClock },
+  { to: "/games", label: "Games", icon: Gamepad2 },
 
   { to: "/shop", label: "USTAD Shop", icon: ShoppingCart },
   { to: "/notes", label: "Notes", icon: NotebookPen },

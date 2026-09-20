@@ -26,6 +26,8 @@ import { Route as StudyRouteImport } from './routes/study'
 import { Route as TournamentRouteImport } from './routes/tournament'
 import { Route as ExamsIndexRouteImport } from './routes/exams.index'
 import { Route as ExamsExamIdRouteImport } from './routes/exams.$examId'
+import { Route as GamesIndexRouteImport } from './routes/games.index'
+import { Route as GamesGameIdRouteImport } from './routes/games.$gameId'
 import { Route as NotificationsIdRouteImport } from './routes/notifications.$id'
 import { Route as ApiPublicEventAutopilotRouteImport } from './routes/api/public/event-autopilot'
 import { Route as ApiPublicExamSchedulerRouteImport } from './routes/api/public/exam-scheduler'
@@ -119,6 +121,16 @@ const ExamsExamIdRoute = ExamsExamIdRouteImport.update({
   path: '/exams/$examId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GamesIndexRoute = GamesIndexRouteImport.update({
+  id: '/games/',
+  path: '/games/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesGameIdRoute = GamesGameIdRouteImport.update({
+  id: '/games/$gameId',
+  path: '/games/$gameId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotificationsIdRoute = NotificationsIdRouteImport.update({
   id: '/notifications/$id',
   path: '/notifications/$id',
@@ -174,8 +186,10 @@ export interface FileRoutesByFullPath {
   '/study': typeof StudyRoute
   '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
+  '/games/$gameId': typeof GamesGameIdRoute
   '/notifications/$id': typeof NotificationsIdRoute
   '/exams/': typeof ExamsIndexRoute
+  '/games/': typeof GamesIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
   '/api/public/notification-announce': typeof ApiPublicNotificationAnnounceRoute
@@ -200,8 +214,10 @@ export interface FileRoutesByTo {
   '/study': typeof StudyRoute
   '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
+  '/games/$gameId': typeof GamesGameIdRoute
   '/notifications/$id': typeof NotificationsIdRoute
   '/exams': typeof ExamsIndexRoute
+  '/games': typeof GamesIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
   '/api/public/notification-announce': typeof ApiPublicNotificationAnnounceRoute
@@ -227,8 +243,10 @@ export interface FileRoutesById {
   '/study': typeof StudyRoute
   '/tournament': typeof TournamentRoute
   '/exams/$examId': typeof ExamsExamIdRoute
+  '/games/$gameId': typeof GamesGameIdRoute
   '/notifications/$id': typeof NotificationsIdRoute
   '/exams/': typeof ExamsIndexRoute
+  '/games/': typeof GamesIndexRoute
   '/api/public/event-autopilot': typeof ApiPublicEventAutopilotRoute
   '/api/public/exam-scheduler': typeof ApiPublicExamSchedulerRoute
   '/api/public/notification-announce': typeof ApiPublicNotificationAnnounceRoute
@@ -255,8 +273,10 @@ export interface FileRouteTypes {
     | '/study'
     | '/tournament'
     | '/exams/$examId'
+    | '/games/$gameId'
     | '/notifications/$id'
     | '/exams/'
+    | '/games/'
     | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
     | '/api/public/notification-announce'
@@ -281,8 +301,10 @@ export interface FileRouteTypes {
     | '/study'
     | '/tournament'
     | '/exams/$examId'
+    | '/games/$gameId'
     | '/notifications/$id'
     | '/exams'
+    | '/games'
     | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
     | '/api/public/notification-announce'
@@ -307,8 +329,10 @@ export interface FileRouteTypes {
     | '/study'
     | '/tournament'
     | '/exams/$examId'
+    | '/games/$gameId'
     | '/notifications/$id'
     | '/exams/'
+    | '/games/'
     | '/api/public/event-autopilot'
     | '/api/public/exam-scheduler'
     | '/api/public/notification-announce'
@@ -334,8 +358,10 @@ export interface RootRouteChildren {
   StudyRoute: typeof StudyRoute
   TournamentRoute: typeof TournamentRoute
   ExamsExamIdRoute: typeof ExamsExamIdRoute
+  GamesGameIdRoute: typeof GamesGameIdRoute
   NotificationsIdRoute: typeof NotificationsIdRoute
   ExamsIndexRoute: typeof ExamsIndexRoute
+  GamesIndexRoute: typeof GamesIndexRoute
   ApiPublicEventAutopilotRoute: typeof ApiPublicEventAutopilotRoute
   ApiPublicExamSchedulerRoute: typeof ApiPublicExamSchedulerRoute
   ApiPublicNotificationAnnounceRoute: typeof ApiPublicNotificationAnnounceRoute
@@ -465,6 +491,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExamsExamIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/games/': {
+      id: '/games/'
+      path: '/games'
+      fullPath: '/games/'
+      preLoaderRoute: typeof GamesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games/$gameId': {
+      id: '/games/$gameId'
+      path: '/games/$gameId'
+      fullPath: '/games/$gameId'
+      preLoaderRoute: typeof GamesGameIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notifications/$id': {
       id: '/notifications/$id'
       path: '/notifications/$id'
@@ -534,8 +574,10 @@ const rootRouteChildren: RootRouteChildren = {
   StudyRoute: StudyRoute,
   TournamentRoute: TournamentRoute,
   ExamsExamIdRoute: ExamsExamIdRoute,
+  GamesGameIdRoute: GamesGameIdRoute,
   NotificationsIdRoute: NotificationsIdRoute,
   ExamsIndexRoute: ExamsIndexRoute,
+  GamesIndexRoute: GamesIndexRoute,
   ApiPublicEventAutopilotRoute: ApiPublicEventAutopilotRoute,
   ApiPublicExamSchedulerRoute: ApiPublicExamSchedulerRoute,
   ApiPublicNotificationAnnounceRoute: ApiPublicNotificationAnnounceRoute,
