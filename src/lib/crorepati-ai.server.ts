@@ -322,6 +322,12 @@ export async function generateQuizSet(input: {
    * requested from the existing API Manager providers.
    */
   deviceBatches?: string[] | undefined;
+  /**
+   * Real preparation progress. Called as each independent batch pipeline moves
+   * through generating → factChecking → completed/failed, so the UI can show
+   * the ACTUAL state instead of a timed animation.
+   */
+  onProgress?: (e: QuizPrepEvent) => void;
 }): Promise<{ questions: GeneratedQuestion[]; provider: string; model: string }> {
   const count = Math.max(1, Math.floor(input.count));
   const { system, buildUser } = quizPromptParts({
