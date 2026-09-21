@@ -141,7 +141,7 @@ export function ResultScreen({
                 >
                   <span className="min-w-0">
                     <span className="text-xs font-semibold text-muted-foreground">
-                      Q{item.questionNumber}
+                       {copy.question} {item.questionNumber}
                     </span>
                     <span className="mt-0.5 block truncate text-sm">{item.question}</span>
                   </span>
@@ -223,7 +223,11 @@ export function ResultScreen({
                                   a?.result === "correct" ? "text-primary" : "text-destructive"
                                 }
                               >
-                                 {a?.result === "correct" ? `✓ ${copy.correct}` : `✗ ${copy.wrong}`}
+                                 {a?.result === "correct"
+                                   ? `✓ ${copy.correct}`
+                                   : a?.result === "time-up"
+                                     ? copy.timeUp
+                                     : `✗ ${copy.wrong}`}
                               </span>
                             </li>
                           );

@@ -22,9 +22,9 @@ type Generated = {
 
 const MAX_ATTEMPTS = 3;
 
-function friendly(message: string): string {
+function friendly(message: string, language: "en" | "hi"): string {
   if (/no ai provider/i.test(message)) return message;
-  return "Something went wrong.";
+  return language === "hi" ? "कुछ गलत हो गया।" : "Something went wrong.";
 }
 
 export type GameRuntime = {
@@ -146,7 +146,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
           if (cancelled.current) return;
           if (attempt === MAX_ATTEMPTS - 1) {
             failures += 1;
-            setError((prev) => prev ?? friendly((e as Error)?.message ?? ""));
+            setError((prev) => prev ?? friendly((e as Error)?.message ?? "", session.language ?? "en"));
           }
         }
       }
@@ -157,7 +157,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
       session.batches.map((batch) => runBatch(batch.batchId, batch.questionNumbers)),
     ).then(() => {
       if (!cancelled.current && failures === session.batches.length) {
-        setError((prev) => prev ?? "Something went wrong.");
+        setError((prev) => prev ?? (session.language === "hi" ? "कुछ गलत हो गया।" : "Something went wrong."));
       }
     });
 

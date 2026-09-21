@@ -155,7 +155,7 @@ export function GameplayScreen({
     );
   }, [session.answers, session.players, slot?.questionId]);
 
-  if (!game) return <GamesError reset={onExit} />;
+  if (!game) return <GamesError reset={onExit} language={language} />;
 
   if (finished) {
     // Real scores, real winner, real review — computed from the stored answers
@@ -164,7 +164,7 @@ export function GameplayScreen({
   }
 
   if (runtime.error && runtime.readyCount === 0) {
-    return <GamesError reset={runtime.restart} />;
+    return <GamesError reset={runtime.restart} language={language} />;
   }
 
   const currentPlayer = session.players[playerTurn];
