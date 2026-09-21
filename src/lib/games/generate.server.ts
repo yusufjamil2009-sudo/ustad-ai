@@ -30,13 +30,21 @@ type RawQ = {
   explanation?: string;
 };
 
-/** Normalised fingerprint used to block duplicates and near-duplicates. */
+/**
+ * Normalised fingerprint used to block duplicates and near-duplicates.
+ *
+ * Script-aware: Devanagari letters are kept, so Hindi questions produce a real
+ * fingerprint instead of an empty string (which used to reject every Hindi
+ * question in the duplicate check).
+ */
 export function fingerprint(question: string): string {
+  const STOP = /^(the|a|an|is|are|of|in|on|to|and|what|which|who|that|है|हैं|का|के|की|में|और|कौन|क्या|यह|से)$/;
   return question
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\b(the|a|an|is|are|of|in|on|to|and|what|which|who|that)\b/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(" ")
+    .filter((word) => word && !STOP.test(word))
+    .join(" ")
     .trim()
     .slice(0, 140);
 }
