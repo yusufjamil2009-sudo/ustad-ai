@@ -107,7 +107,9 @@ function clean(
     const explanation = String(row.explanation ?? "").trim();
     if (!explanation) continue;
     if (!hasExpectedLanguage(question, language) || !hasExpectedLanguage(explanation, language)) continue;
-    if (values.some((value) => !hasExpectedLanguage(value, language))) continue;
+    // Options are often names, numbers or fixed terms — only reject an option
+    // that is long enough to really be a sentence in the wrong language.
+    if (values.some((value) => value.length >= 14 && !hasExpectedLanguage(value, language))) continue;
 
     const fp = fingerprint(question);
     if (!fp || seen.some((s) => tooSimilar(s, fp))) continue;
