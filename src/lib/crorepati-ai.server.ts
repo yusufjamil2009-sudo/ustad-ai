@@ -524,6 +524,7 @@ export async function generateCrorepatiSet(input: {
   klass?: string | null;
   avoid: string[];
   seed: number;
+  onProgress?: (e: QuizPrepEvent) => void;
 }) {
   return generateQuizSet({ ...input, count: CROREPATI_QUESTION_COUNT });
 }
