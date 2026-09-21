@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, ArrowRight, BrainCircuit, Medal, Swords } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import heroImage from "@/assets/ustad-yusuf-luxury-hero.webp.asset.json";
+import heroImage from "@/assets/ustad-hero.png.asset.json";
 import { FutureAiCore } from "@/components/FutureAiCore";
 import { CinematicEntry } from "@/components/entry/CinematicEntry";
 import { markCinematicReveal } from "@/components/entry/entry-flags";
