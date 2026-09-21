@@ -47,6 +47,7 @@ import {
   formatRupees,
   type CrorepatiAttemptView,
 } from "@/lib/crorepati-spec";
+import { PreparationProgress } from "@/components/games/PreparationProgress";
 import { clockLabel, secondsLeft, useServerClockOffset } from "@/lib/crorepati-clock";
 
 export const Route = createFileRoute("/crorepati")({
@@ -375,6 +376,7 @@ function CrorepatiPage() {
                 <ResultPanel
                   view={view}
                   busy={busy}
+                  token={token ?? ""}
                   entry={entryState}
                   onStart={() => void start()}
                 />
@@ -706,11 +708,13 @@ function EntryPanel({ entry }: { entry: EntryStateView | null }) {
 function ResultPanel({
   view,
   busy,
+  token,
   entry,
   onStart,
 }: {
   view: CrorepatiAttemptView | null;
   busy: boolean;
+  token: string;
   entry: EntryStateView | null;
   onStart: () => void;
 }) {
@@ -757,6 +761,9 @@ function ResultPanel({
           <li>Prize board runs from ₹20,000 at Q1 up to ₹10 crore at Q20.</li>
         </ul>
       )}
+      {busy && token ? (
+        <PreparationProgress token={token} total={CROREPATI_QUESTION_COUNT} />
+      ) : null}
       <Button
         onClick={onStart}
         disabled={busy || (entry ? !entry.eligibility.canStart : false)}
