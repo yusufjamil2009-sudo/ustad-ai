@@ -68,7 +68,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
         if (!check.valid) continue;
         const language = session.language ?? "en";
         if (!hasExpectedLanguage(row.question, language) || !hasExpectedLanguage(row.explanation, language)) continue;
-        if (Object.values(row.options).some((value) => !hasExpectedLanguage(value, language))) continue;
+        if (Object.values(row.options).some((value) => value.length >= 14 && !hasExpectedLanguage(value, language))) continue;
         accepted.push({ question: row.question });
         kept.push(row);
       }
