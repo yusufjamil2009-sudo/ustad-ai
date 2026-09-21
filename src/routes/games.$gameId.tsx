@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Lock } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { GamesError } from "@/components/games/GamesError";
+import { GameLanguageSelector } from "@/components/games/GameLanguageSelector";
 import { GameplayScreen } from "@/components/games/GameplayScreen";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,14 +17,14 @@ import {
 } from "@/lib/games/config";
 import {
   claimDailyStart,
-  LOCKED_LABEL,
   useDailyStatus,
-  VERIFY_ERROR,
 } from "@/lib/games/daily-client";
 import { createSession } from "@/lib/games/engine";
 import { clearGame, loadGame } from "@/lib/games/persist";
 import { setActiveSession } from "@/lib/games/store";
 import type { GameSession } from "@/lib/games/types";
+import { GAME_COPY, difficultyHint, difficultyName, gameName, playerName, toGameLanguage, toSettingsLanguage } from "@/lib/games/language";
+import { useSettings } from "@/lib/settings-store";
 
 export const Route = createFileRoute("/games/$gameId")({
   head: () => ({
@@ -47,11 +48,9 @@ export const Route = createFileRoute("/games/$gameId")({
   component: PreGamePage,
 });
 
-const PLAYER_OPTIONS: { count: PlayerCount; label: string; emoji: string }[] = [
-  { count: 1, label: "1 Player", emoji: "👤" },
-  { count: 2, label: "2 Players", emoji: "👥" },
-  { count: 3, label: "3 Players", emoji: "👥" },
-  { count: 4, label: "4 Players", emoji: "👥" },
+const PLAYER_OPTIONS: { count: PlayerCount; emoji: string }[] = [
+  { count: 1, emoji: "👤" }, { count: 2, emoji: "👥" },
+  { count: 3, emoji: "👥" }, { count: 4, emoji: "👥" },
 ];
 
 /** Pre-game screen. Rendering it generates ZERO questions. */
@@ -71,6 +70,9 @@ function PreGamePage() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [lockedNow, setLockedNow] = useState(false);
+  const { settings, saving, update } = useSettings();
+  const language = toGameLanguage(settings?.language);
+  const copy = GAME_COPY[language];
 
   // Refresh protection: an interrupted game for THIS game id resumes exactly
   // where it stopped, with every stored answer intact.
@@ -98,7 +100,7 @@ function PreGamePage() {
     setStarting(true);
     setStartError(null);
     // Only the SELECTED game gets a session. No other game is touched.
-    const fresh = createSession({ gameId: game.id, playerCount, difficulty });
+    const fresh = createSession({ gameId: game.id, playerCount, difficulty, language });
     try {
       // The backend decides — a second match on the same IST day is rejected
       // and no duplicate daily record can be created.
@@ -109,7 +111,7 @@ function PreGamePage() {
         return;
       }
     } catch {
-      setStartError(VERIFY_ERROR);
+      setStartError(copy.verifyError);
       setStarting(false);
       return;
     }
@@ -151,7 +153,7 @@ function PreGamePage() {
           <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-5 text-center shadow-sm">
             <p className="text-sm text-muted-foreground">{daily.error}</p>
             <Button className="mt-4 min-h-11 w-full" onClick={daily.refresh}>
-              Try Again
+              {copy.tryAgain}
             </Button>
           </div>
         </div>
@@ -166,22 +168,22 @@ function PreGamePage() {
           <div className="mx-auto w-full max-w-md">
             <Button asChild variant="ghost" size="sm" className="-ml-2 mb-3">
               <Link to="/games">
-                <ArrowLeft className="size-4" /> Games
+                 <ArrowLeft className="size-4" /> {copy.games}
               </Link>
             </Button>
             <section className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
               <span className="text-4xl" aria-hidden="true">
                 {game.icon}
               </span>
-              <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">{game.name}</h1>
+               <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">{gameName(game.id, language)}</h1>
               <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-muted px-4 py-1.5 text-sm font-medium">
-                <Lock className="size-4" aria-hidden="true" /> {LOCKED_LABEL}
+                 <Lock className="size-4" aria-hidden="true" /> {copy.locked}
               </p>
               <p className="mt-3 text-sm text-muted-foreground">
-                This game opens again tomorrow. Your other games are still ready to play.
+                 {copy.opensTomorrow}
               </p>
               <Button asChild className="mt-5 min-h-12 w-full">
-                <Link to="/games">Back to Games</Link>
+                 <Link to="/games">{copy.backToGames}</Link>
               </Button>
             </section>
           </div>
@@ -196,23 +198,28 @@ function PreGamePage() {
         <div className="mx-auto w-full max-w-md">
           <Button asChild variant="ghost" size="sm" className="-ml-2 mb-3">
             <Link to="/games">
-              <ArrowLeft className="size-4" /> Games
+               <ArrowLeft className="size-4" /> {copy.games}
             </Link>
           </Button>
 
           <section className="rounded-2xl border border-border bg-card p-5 text-center shadow-sm">
+            <GameLanguageSelector
+              language={language}
+              disabled={saving}
+              onChange={(next) => void update({ language: toSettingsLanguage(next) })}
+            />
             <span className="text-4xl" aria-hidden="true">
               {game.icon}
             </span>
-            <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">{game.name}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Ready to challenge your brain?</p>
+             <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">{gameName(game.id, language)}</h1>
+             <p className="mt-1 text-sm text-muted-foreground">{copy.ready}</p>
 
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-muted px-4 py-1.5 text-sm font-medium">
-              {game.totalQuestions} Questions
+               {game.totalQuestions} {copy.questions}
             </div>
 
             <h2 className="mt-6 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-              Choose Difficulty
+               {copy.chooseDifficulty}
             </h2>
             <div
               className="mt-3 grid grid-cols-2 gap-2"
@@ -234,17 +241,17 @@ function PreGamePage() {
                         : "border-border bg-background text-foreground hover:bg-muted"
                     }`}
                   >
-                    {level.name}
+                     {difficultyName(level.id, language)}
                   </button>
                 );
               })}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              {DIFFICULTIES.find((d) => d.id === difficulty)?.hint}
+               {difficultyHint(difficulty, language)}
             </p>
 
             <h2 className="mt-6 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-              Choose Players
+               {copy.choosePlayers}
             </h2>
             <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Choose players">
               {PLAYER_OPTIONS.map((option) => {
@@ -264,7 +271,7 @@ function PreGamePage() {
                     }`}
                   >
                     <span aria-hidden="true">{option.emoji}</span>
-                    {option.label}
+                     {option.count} {copy.player}{option.count > 1 && language === "en" ? "s" : ""}
                   </button>
                 );
               })}
@@ -278,7 +285,7 @@ function PreGamePage() {
                     className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs"
                   >
                     <span aria-hidden="true">{player.emoji}</span>
-                    {player.name}
+                     {playerName(player.color, language)}
                   </li>
                 ))}
               </ul>
@@ -286,8 +293,8 @@ function PreGamePage() {
 
             <p className="mt-4 text-xs text-muted-foreground">
               {timer.timerEnabled
-                ? "2 minutes for each question."
-                : "No timer — take all the time you need."}
+                 ? copy.minutes
+                 : copy.noTimer}
             </p>
 
             {startError ? (
@@ -299,7 +306,7 @@ function PreGamePage() {
               disabled={starting || daily.loading}
               onClick={() => void startGame()}
             >
-              {starting ? "STARTING…" : "START GAME"}
+               {starting ? copy.starting : copy.start}
             </Button>
           </section>
         </div>

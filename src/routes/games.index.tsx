@@ -2,9 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { GamesError } from "@/components/games/GamesError";
+import { GameLanguageSelector } from "@/components/games/GameLanguageSelector";
 import { Button } from "@/components/ui/button";
 import { GAMES } from "@/lib/games/config";
-import { LOCKED_LABEL, useDailyStatus } from "@/lib/games/daily-client";
+import { useDailyStatus } from "@/lib/games/daily-client";
+import { GAME_COPY, gameDescription, gameName, toGameLanguage, toSettingsLanguage } from "@/lib/games/language";
+import { useSettings } from "@/lib/settings-store";
 
 export const Route = createFileRoute("/games/")({
   head: () => ({
@@ -39,16 +42,26 @@ export const Route = createFileRoute("/games/")({
 function GamesLibraryPage() {
   // The backend is the only authority for today's availability.
   const daily = useDailyStatus();
+  const { settings, saving, update } = useSettings();
+  const language = toGameLanguage(settings?.language);
+  const copy = GAME_COPY[language];
 
   return (
     <AppShell>
-      <PageHeader title="Games" subtitle="Challenge your mind. Play. Think. Solve." />
+      <PageHeader title={copy.library} subtitle={copy.subtitle} />
       <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
+        <div className="mx-auto mb-4 max-w-sm">
+          <GameLanguageSelector
+            language={language}
+            disabled={saving}
+            onChange={(next) => void update({ language: toSettingsLanguage(next) })}
+          />
+        </div>
         {daily.error ? (
           <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-5 text-center shadow-sm">
-            <p className="text-sm text-muted-foreground">{daily.error}</p>
+            <p className="text-sm text-muted-foreground">{copy.verifyError}</p>
             <Button className="mt-4 min-h-11 w-full" onClick={daily.refresh}>
-              Try Again
+              {copy.tryAgain}
             </Button>
           </div>
         ) : (
@@ -72,34 +85,34 @@ function GamesLibraryPage() {
                         {game.icon}
                       </span>
                       <div className="min-w-0">
-                        <h2 className="truncate text-base font-semibold">{game.name}</h2>
-                        <p className="mt-0.5 text-sm text-muted-foreground">{game.description}</p>
+                        <h2 className="truncate text-base font-semibold">{gameName(game.id, language)}</h2>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{gameDescription(game.id, language)}</p>
                       </div>
                     </div>
                     <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
                       {checking ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                          Checking…
+                          {copy.checking}
                         </span>
                       ) : locked ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                           <Lock className="size-3" aria-hidden="true" />
-                          {LOCKED_LABEL}
+                           {copy.locked}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
                           <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-                          Available today
+                           {copy.available}
                         </span>
                       )}
                       {locked ? (
                         <Button size="sm" disabled>
-                          Play
+                          {copy.play}
                         </Button>
                       ) : (
                         <Button asChild size="sm" disabled={checking}>
                           <Link to="/games/$gameId" params={{ gameId: game.id }}>
-                            Play
+                            {copy.play}
                           </Link>
                         </Button>
                       )}
@@ -111,7 +124,7 @@ function GamesLibraryPage() {
           </ul>
         )}
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Each game gives you 30 questions, once a day.
+          {copy.dailyNote}
         </p>
       </div>
     </AppShell>

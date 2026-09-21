@@ -7,9 +7,10 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DIFFICULTIES, getGame } from "@/lib/games/config";
+import { getGame } from "@/lib/games/config";
 import { buildResult, emojiFor, swatchFor } from "@/lib/games/score";
 import { OPTION_KEYS, type GameSession, type OptionKey, type QuestionSlot } from "@/lib/games/types";
+import { GAME_COPY, difficultyName, gameName, playerName } from "@/lib/games/language";
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -33,12 +34,13 @@ export function ResultScreen({
   const result = useMemo(() => buildResult(session, slots), [session, slots]);
   const [open, setOpen] = useState<number | null>(null);
   const [showReview, setShowReview] = useState(false);
+  const language = session.language ?? "en";
+  const copy = GAME_COPY[language];
 
   const solo = session.players.length === 1;
   const me = result.scores[0];
   const winners = result.scores.filter((s) => result.winnerPlayerIds.includes(s.playerId));
-  const difficultyName =
-    DIFFICULTIES.find((d) => d.id === session.difficulty)?.name ?? session.difficulty;
+  const difficultyLabel = difficultyName(session.difficulty, language);
 
   return (
     <div className="mx-auto w-full max-w-md pb-8">
@@ -46,9 +48,9 @@ export function ResultScreen({
         <span className="text-4xl" aria-hidden="true">
           {game?.icon}
         </span>
-        <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">Game Complete</h1>
+         <h1 className="mt-2 text-xl font-semibold tracking-wide uppercase">{copy.gameComplete}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {game?.name} · {difficultyName}
+           {game ? gameName(game.id, language) : ""} · {difficultyLabel}
         </p>
 
         {solo && me ? (
@@ -57,17 +59,17 @@ export function ResultScreen({
               {me.score}
               <span className="text-xl text-muted-foreground"> / {session.totalQuestions}</span>
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{me.accuracy}% Accuracy</p>
+             <p className="mt-1 text-sm text-muted-foreground">{me.accuracy}% {copy.accuracy}</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <Stat label="Correct" value={me.correct} />
-              <Stat label="Wrong" value={me.wrong} />
-              <Stat label="Time Up" value={me.timeUp} />
+               <Stat label={copy.correct} value={me.correct} />
+               <Stat label={copy.wrong} value={me.wrong} />
+               <Stat label={copy.timeUp} value={me.timeUp} />
             </div>
           </>
         ) : (
           <>
             <h2 className="mt-5 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-              Final Results
+               {copy.finalResults}
             </h2>
             <ul className="mt-3 space-y-2 text-left">
               {result.scores.map((s) => (
@@ -82,14 +84,14 @@ export function ResultScreen({
                         style={{ backgroundColor: swatchFor(s.playerId) }}
                         aria-hidden="true"
                       />
-                      {s.name}
+                       {playerName(s.color, language)}
                     </span>
                     <span className="text-sm font-semibold tabular-nums">
                       {s.score} / {session.totalQuestions}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Correct: {s.correct} · Wrong: {s.wrong} · Time Up: {s.timeUp} · {s.accuracy}%
+                     {copy.correct}: {s.correct} · {copy.wrong}: {s.wrong} · {copy.timeUp}: {s.timeUp} · {s.accuracy}%
                   </p>
                 </li>
               ))}
@@ -98,11 +100,11 @@ export function ResultScreen({
             <div className="mt-4 rounded-xl border border-primary bg-primary/10 p-3">
               <p className="flex items-center justify-center gap-2 text-sm font-semibold">
                 <Trophy className="size-4" aria-hidden="true" />
-                {winners.length > 1 ? "Tie" : "Winner"}
+                 {winners.length > 1 ? copy.tie : copy.winner}
               </p>
               <p className="mt-1 text-sm">
                 {winners
-                  .map((w) => `${emojiFor(w.playerId)} ${w.name} — ${w.score}/${session.totalQuestions}`)
+                   .map((w) => `${emojiFor(w.playerId)} ${playerName(w.color, language)} — ${w.score}/${session.totalQuestions}`)
                   .join("  ·  ")}
               </p>
             </div>
@@ -114,10 +116,10 @@ export function ResultScreen({
           className="mt-5 min-h-12 w-full"
           onClick={() => setShowReview((v) => !v)}
         >
-          {showReview ? "Hide Review" : `Review All ${session.totalQuestions} Questions`}
+           {showReview ? copy.hideReview : `${copy.reviewAll} (${session.totalQuestions})`}
         </Button>
         <Button className="mt-2 min-h-12 w-full" onClick={onExit}>
-          Back to Games
+           {copy.backToGames}
         </Button>
       </section>
 
@@ -153,7 +155,7 @@ export function ResultScreen({
                         {mine?.result === "correct"
                           ? "✓"
                           : mine?.result === "time-up"
-                            ? "Time Up"
+                             ? copy.timeUp
                             : "✗"}
                       </span>
                     ) : null}
@@ -184,23 +186,23 @@ export function ResultScreen({
                     </ul>
 
                     <p className="mt-3">
-                      <span className="font-medium">Correct Answer:</span> {item.correctAnswer}
+                       <span className="font-medium">{copy.correctAnswer}:</span> {item.correctAnswer}
                     </p>
 
                     {solo ? (
                       <p className="mt-1">
-                        <span className="font-medium">Your Answer:</span>{" "}
-                        {mine?.result === "time-up" ? "Time Up" : (mine?.selectedAnswer ?? "—")}{" "}
+                         <span className="font-medium">{copy.yourAnswer}:</span>{" "}
+                         {mine?.result === "time-up" ? copy.timeUp : (mine?.selectedAnswer ?? "—")}{" "}
                         <span
                           className={
                             mine?.result === "correct" ? "text-primary" : "text-destructive"
                           }
                         >
                           {mine?.result === "correct"
-                            ? "✓ Correct"
+                             ? `✓ ${copy.correct}`
                             : mine?.result === "time-up"
-                              ? "Time Up"
-                              : "✗ Wrong"}
+                               ? copy.timeUp
+                               : `✗ ${copy.wrong}`}
                         </span>
                       </p>
                     ) : (
@@ -214,14 +216,14 @@ export function ResultScreen({
                                 style={{ backgroundColor: swatchFor(p.id) }}
                                 aria-hidden="true"
                               />
-                              <span className="font-medium">{p.name}:</span>
+                               <span className="font-medium">{playerName(p.color, language)}:</span>
                               <span>{a?.selectedAnswer ?? "—"}</span>
                               <span
                                 className={
                                   a?.result === "correct" ? "text-primary" : "text-destructive"
                                 }
                               >
-                                {a?.result === "correct" ? "✓ Correct" : "✗ Wrong"}
+                                 {a?.result === "correct" ? `✓ ${copy.correct}` : `✗ ${copy.wrong}`}
                               </span>
                             </li>
                           );
@@ -229,7 +231,7 @@ export function ResultScreen({
                       </ul>
                     )}
 
-                    <p className="mt-3 text-muted-foreground">{item.explanation}</p>
+                     <p className="mt-3 text-muted-foreground"><span className="font-medium text-foreground">{copy.explanation}:</span> {item.explanation}</p>
                   </div>
                 ) : null}
               </article>
