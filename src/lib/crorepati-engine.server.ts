@@ -473,13 +473,29 @@ export async function startAttempt(input: {
     const { guestLocale } = await import("./notification.server");
     const language = (await guestLocale(guestId)).language as Language;
 
-    const { questions } = await generateCrorepatiSet({
-      guestId,
-      language,
-      klass: (profile?.["klass"] as string) ?? null,
-      avoid: (served ?? []).map((r: Row) => String(r["question_hash"])),
-      seed: Math.floor(Math.random() * 1_000_000),
-    });
+    /*
+     * REAL preparation progress. The recorder only mirrors the states the
+     * parallel pipeline already emits — it never changes how questions are
+     * generated, fact-checked or accepted.
+     */
+    const { createPrepRecorder } = await import("./crorepati-prep.server");
+    const recorder = createPrepRecorder(guestId, CROREPATI_QUESTION_COUNT);
+    recorder.begin();
+    let questions;
+    try {
+      ({ questions } = await generateCrorepatiSet({
+        guestId,
+        language,
+        klass: (profile?.["klass"] as string) ?? null,
+        avoid: (served ?? []).map((r: Row) => String(r["question_hash"])),
+        seed: Math.floor(Math.random() * 1_000_000),
+        onProgress: recorder.onProgress,
+      }));
+    } catch (err) {
+      await recorder.finish("failed").catch(() => {});
+      throw err;
+    }
+    await recorder.finish("ready").catch(() => {});
 
     const { data: attempt, error } = await client
       .from("crorepati_attempts")
