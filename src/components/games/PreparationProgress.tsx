@@ -12,8 +12,22 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, ShieldCheck, XCircle, Clock } from "lucide-react";
 
 import { crorepatiPrepProgressFn } from "@/lib/crorepati.functions";
-import type { PrepProgressView } from "@/lib/crorepati-prep.server";
 import { useIdentityLanguage } from "@/lib/identity-language";
+
+type PrepBatch = {
+  slot: number;
+  state: "pending" | "generating" | "factChecking" | "completed" | "failed";
+  generated: number;
+  verified: number;
+};
+
+type PrepProgressView = {
+  runId: string;
+  total: number;
+  verified: number;
+  phase: "preparing" | "ready" | "failed";
+  batches: PrepBatch[];
+};
 
 type Copy = {
   title: (n: number) => string;
