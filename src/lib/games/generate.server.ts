@@ -12,6 +12,7 @@ import type { ChatMessage } from "../provider-clients.server";
 import { getGame, type Difficulty, type GameId } from "./config";
 import { gamePromptParts } from "./prompts.server";
 import { OPTION_KEYS, type OptionKey } from "./types";
+import { hasExpectedLanguage, type GameLanguage } from "./language";
 
 export type GeneratedGameQuestion = {
   question: string;
@@ -70,6 +71,7 @@ function clean(
   difficulty: Difficulty,
   targets: OptionKey[],
   seenFingerprints: string[],
+  language: GameLanguage,
 ): GeneratedGameQuestion[] {
   const out: GeneratedGameQuestion[] = [];
   const seen = [...seenFingerprints];
@@ -96,6 +98,8 @@ function clean(
 
     const explanation = String(row.explanation ?? "").trim();
     if (!explanation) continue;
+    if (!hasExpectedLanguage(question, language) || !hasExpectedLanguage(explanation, language)) continue;
+    if (values.some((value) => !hasExpectedLanguage(value, language))) continue;
 
     const fp = fingerprint(question);
     if (!fp || seen.some((s) => tooSimilar(s, fp))) continue;
@@ -125,6 +129,7 @@ export async function generateGameQuestions(input: {
   guestId: string;
   gameId: GameId;
   difficulty: Difficulty;
+  language: GameLanguage;
   /** One correct-answer slot per requested question. */
   targets: OptionKey[];
   avoid: string[];
@@ -143,6 +148,7 @@ export async function generateGameQuestions(input: {
       gameId: game.id,
       gameName: game.name,
       difficulty: input.difficulty,
+      language: input.language,
       count: need,
       avoid: [...input.avoid, ...collected.map((q) => q.question)],
       seed: input.seed + round * 977,
@@ -181,7 +187,7 @@ export async function generateGameQuestions(input: {
     const fresh = clean(rows, input.difficulty, slots, [
       ...seen,
       ...collected.map((q) => fingerprint(q.question)),
-    ]);
+    ], input.language);
     collected.push(...fresh);
   }
 

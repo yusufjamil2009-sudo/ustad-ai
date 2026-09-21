@@ -10,12 +10,13 @@ import { ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GamesError } from "@/components/games/GamesError";
 import { ResultScreen } from "@/components/games/ResultScreen";
-import { DIFFICULTIES, getGame, PLAYER_SLOTS } from "@/lib/games/config";
+import { getGame, PLAYER_SLOTS } from "@/lib/games/config";
 import { useProgressReporter } from "@/lib/games/daily-client";
 import { recordAnswer } from "@/lib/games/engine";
 import { clearGame, saveGame } from "@/lib/games/persist";
 import { useGameRuntime } from "@/lib/games/runtime";
 import { OPTION_KEYS, type AnswerResult, type GameSession, type OptionKey } from "@/lib/games/types";
+import { GAME_COPY, difficultyName, gameName, playerName } from "@/lib/games/language";
 
 function swatchFor(id: string): string {
   return PLAYER_SLOTS.find((p) => p.id === id)?.swatch ?? "#ef4444";
@@ -55,6 +56,8 @@ export function GameplayScreen({
   const [revealed, setRevealed] = useState(false);
   const [finished, setFinished] = useState(resumeFinished);
   const [seconds, setSeconds] = useState(initial.timerSeconds ?? 0);
+  const language = initial.language ?? "en";
+  const copy = GAME_COPY[language];
   const lockRef = useRef(false);
   // Daily attempt reporting. A question counts as completed only once EVERY
   // active player has submitted (or the solo timer hit 00:00). The backend
@@ -63,8 +66,7 @@ export function GameplayScreen({
 
   const slot = runtime.slots[index];
   const ready = slot?.status === "ready" && !!slot.question;
-  const difficultyName =
-    DIFFICULTIES.find((d) => d.id === session.difficulty)?.name ?? session.difficulty;
+  const difficultyLabel = difficultyName(session.difficulty, language);
 
   /* ------------------------------------------------- per-question timer -- */
   useEffect(() => {
@@ -153,7 +155,7 @@ export function GameplayScreen({
     );
   }, [session.answers, session.players, slot?.questionId]);
 
-  if (!game) return <GamesError reset={onExit} />;
+  if (!game) return <GamesError reset={onExit} language={language} />;
 
   if (finished) {
     // Real scores, real winner, real review — computed from the stored answers
@@ -162,7 +164,7 @@ export function GameplayScreen({
   }
 
   if (runtime.error && runtime.readyCount === 0) {
-    return <GamesError reset={runtime.restart} />;
+    return <GamesError reset={runtime.restart} language={language} />;
   }
 
   const currentPlayer = session.players[playerTurn];
@@ -171,7 +173,7 @@ export function GameplayScreen({
     <div className="mx-auto w-full max-w-md">
       <div className="flex items-center justify-between gap-2">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={exit}>
-          <ArrowLeft className="size-4" /> Exit
+           <ArrowLeft className="size-4" /> {copy.exit}
         </Button>
         {session.timerEnabled ? (
           <span
@@ -187,10 +189,10 @@ export function GameplayScreen({
 
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
-          {game.icon} {game.name}
+           {game.icon} {gameName(game.id, language)}
         </span>
-        <span className="rounded-full bg-muted px-2 py-0.5">{difficultyName}</span>
-        <span>Question {index + 1} / {session.totalQuestions}</span>
+         <span className="rounded-full bg-muted px-2 py-0.5">{difficultyLabel}</span>
+         <span>{copy.question} {index + 1} / {session.totalQuestions}</span>
       </div>
 
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -202,13 +204,13 @@ export function GameplayScreen({
 
       {!ready ? (
         <section className="mt-6 rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-          <p className="text-base font-medium">Preparing your challenge…</p>
+           <p className="text-base font-medium">{copy.preparing}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Questions ready: {runtime.readyCount}/{session.totalQuestions}
+             {copy.questionsReady}: {runtime.readyCount}/{session.totalQuestions}
           </p>
           {slot?.status === "failed" ? (
             <Button variant="outline" size="sm" className="mt-4" onClick={runtime.restart}>
-              Try Again
+               {copy.tryAgain}
             </Button>
           ) : null}
         </section>
@@ -221,7 +223,7 @@ export function GameplayScreen({
                 style={{ backgroundColor: swatchFor(currentPlayer?.id ?? "player1") }}
                 aria-hidden="true"
               />
-              {currentPlayer?.name}'s turn
+               {currentPlayer ? playerName(currentPlayer.color, language) : ""}{copy.turn}
             </div>
           ) : null}
 
@@ -261,10 +263,10 @@ export function GameplayScreen({
               {session.players.length === 1 ? (
                 <p className="font-semibold">
                   {myAnswer?.result === "correct"
-                    ? "Correct!"
+                     ? copy.correct
                     : myAnswer?.result === "time-up"
-                      ? "Time up"
-                      : "Wrong"}
+                       ? copy.timeUp
+                       : copy.wrong}
                 </p>
               ) : (
                 <ul className="mb-2 space-y-1">
@@ -279,19 +281,19 @@ export function GameplayScreen({
                           style={{ backgroundColor: swatchFor(player.id) }}
                           aria-hidden="true"
                         />
-                        {player.name}: {answer?.selectedAnswer ?? "—"}
+                         {playerName(player.color, language)}: {answer?.selectedAnswer ?? "—"}
                       </li>
                     );
                   })}
                 </ul>
               )}
               <p className="mt-1">
-                <span className="font-medium">Correct answer:</span> {slot.correctAnswer}.{" "}
+                 <span className="font-medium">{copy.correctAnswer}:</span> {slot.correctAnswer}.{" "}
                 {slot.options?.[slot.correctAnswer as OptionKey]}
               </p>
               <p className="mt-1 text-muted-foreground">{slot.explanation}</p>
               <Button className="mt-3 min-h-11 w-full" onClick={next}>
-                {index + 1 >= session.totalQuestions ? "Finish" : "Next question"}
+                 {index + 1 >= session.totalQuestions ? copy.finish : copy.nextQuestion}
               </Button>
             </div>
           ) : (
@@ -300,7 +302,7 @@ export function GameplayScreen({
               disabled={!selected}
               onClick={() => submit(selected)}
             >
-              Submit answer
+               {copy.submitAnswer}
             </Button>
           )}
         </section>

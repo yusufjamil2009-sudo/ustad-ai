@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { gamesGenerateFn } from "../ustad-api";
 import { buildAnswerPositionPlan, validateQuestion } from "./engine";
 import type { GameSession, OptionKey, QuestionSlot } from "./types";
+import { hasExpectedLanguage } from "./language";
 
 type Generated = {
   question: string;
@@ -21,9 +22,9 @@ type Generated = {
 
 const MAX_ATTEMPTS = 3;
 
-function friendly(message: string): string {
+function friendly(message: string, language: "en" | "hi"): string {
   if (/no ai provider/i.test(message)) return message;
-  return "Something went wrong.";
+  return language === "hi" ? "कुछ गलत हो गया।" : "Something went wrong.";
 }
 
 export type GameRuntime = {
@@ -65,6 +66,9 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
           accepted,
         );
         if (!check.valid) continue;
+        const language = session.language ?? "en";
+        if (!hasExpectedLanguage(row.question, language) || !hasExpectedLanguage(row.explanation, language)) continue;
+        if (Object.values(row.options).some((value) => !hasExpectedLanguage(value, language))) continue;
         accepted.push({ question: row.question });
         kept.push(row);
       }
@@ -104,6 +108,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
           token: "",
           gameId: session.gameId,
           difficulty: session.difficulty,
+          language: session.language ?? "en",
           batchId,
           questionNumbers: numbers,
           targets: numbers.map((n) => plan[n - 1] ?? "A"),
@@ -141,7 +146,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
           if (cancelled.current) return;
           if (attempt === MAX_ATTEMPTS - 1) {
             failures += 1;
-            setError((prev) => prev ?? friendly((e as Error)?.message ?? ""));
+            setError((prev) => prev ?? friendly((e as Error)?.message ?? "", session.language ?? "en"));
           }
         }
       }
@@ -152,7 +157,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
       session.batches.map((batch) => runBatch(batch.batchId, batch.questionNumbers)),
     ).then(() => {
       if (!cancelled.current && failures === session.batches.length) {
-        setError((prev) => prev ?? "Something went wrong.");
+        setError((prev) => prev ?? (session.language === "hi" ? "कुछ गलत हो गया।" : "Something went wrong."));
       }
     });
 

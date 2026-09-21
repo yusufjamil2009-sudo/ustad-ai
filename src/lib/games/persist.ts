@@ -35,6 +35,8 @@ export function loadGame(gameId: string): PersistedGame | null {
     if (!Array.isArray(parsed.session.questions) || !Array.isArray(parsed.session.answers)) {
       return null;
     }
+    // Sessions saved before language support were English-only.
+    parsed.session.language = parsed.session.language === "hi" ? "hi" : "en";
     return parsed;
   } catch {
     return null;

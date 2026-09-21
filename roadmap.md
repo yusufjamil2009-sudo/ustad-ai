@@ -12,4 +12,4 @@
 - [x] Validate the real content-sized glass response card and full mobile sequence.
 - [x] Correct shoulder carry, single-kick contact, and forward response-card flight without changing character sides.
 
-- [ ] Add and verify the Games Library English/Hindi language system.
+- [x] Add and verify the Games Library English/Hindi language system.
