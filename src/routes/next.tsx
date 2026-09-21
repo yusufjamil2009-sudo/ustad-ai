@@ -25,6 +25,7 @@ import {
   Settings as SettingsIcon,
   Home,
   ArrowLeft,
+  Gamepad2,
 } from "lucide-react";
 import { useGuest, shortId } from "@/lib/ustad-client";
 import { IdentityScreen } from "@/components/IdentityScreen";
@@ -69,6 +70,7 @@ const FEATURES: NextFeature[] = [
   { to: "/classroom", title: "Classroom", text: "Live 2D classroom with voice teaching.", icon: Boxes, motif: "ai" },
   { to: "/exams", title: "Exams", text: "Generated papers with real scoring.", icon: ClipboardList, motif: "medal" },
   { to: "/crorepati", title: "Crorepati", text: "The premium quiz-show challenge.", icon: Trophy, motif: "medal" },
+  { to: "/games", title: "Games Library", text: "Nine mind games — riddles, puzzles, IQ and more.", icon: Gamepad2, motif: "versus" },
   { to: "/mega", title: "Mega Tournament", text: "Large-scale competitive rounds.", icon: Swords, motif: "versus" },
   { to: "/tournament", title: "Mystery Tournament", text: "Surprise formats, real rewards.", icon: Search, motif: "versus" },
   { to: "/god-tournament", title: "God Master", text: "The hardest tier of competition.", icon: Crown, motif: "versus" },
