@@ -130,7 +130,7 @@ export function createPrepRecorder(guestId: string, total: number) {
 
 /** Read the current preparation state for the signed-in guest. */
 export async function getPrepProgress(token: string): Promise<PrepProgressView | null> {
-  const { guestId } = await requireGuest(token);
+  const guestId = await requireGuest(token);
   const { data } = await sdb()
     .from("crorepati_prep_progress")
     .select("*")
