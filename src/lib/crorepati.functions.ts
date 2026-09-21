@@ -25,6 +25,17 @@ export const crorepatiStartFn = createServerFn({ method: "POST" })
     }),
   );
 
+/**
+ * Live question-preparation progress (real batch states, never a timed
+ * animation). Read-only; it cannot influence the attempt in any way.
+ */
+export const crorepatiPrepProgressFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { token: string }) => d)
+  .handler(async ({ data: d }) => {
+    const { getPrepProgress } = await import("./crorepati-prep.server");
+    return getPrepProgress(d.token);
+  });
+
 /* ---------------- Part 3: entry / free attempts / recovery ---------------- */
 
 export const crorepatiEntryStateFn = createServerFn({ method: "POST" })
