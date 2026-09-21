@@ -4,6 +4,7 @@
  * Reusable across all 9 games. No game-specific shapes exist anywhere.
  */
 import type { Difficulty, GameId, PlayerColor, PlayerCount, PlayerSlotId } from "./config";
+import type { GameLanguage } from "./language";
 
 export type OptionKey = "A" | "B" | "C" | "D";
 export const OPTION_KEYS: OptionKey[] = ["A", "B", "C", "D"];
@@ -63,6 +64,8 @@ export type SessionStatus =
 export type GameSession = {
   sessionId: string;
   gameId: GameId;
+  /** Locked when the session starts; preference changes affect only future sessions. */
+  language: GameLanguage;
   difficulty: Difficulty;
   playerCount: PlayerCount;
   players: SessionPlayer[];

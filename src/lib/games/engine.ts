@@ -17,6 +17,7 @@ import {
   type GameId,
   type PlayerCount,
 } from "./config";
+import type { GameLanguage } from "./language";
 import {
   OPTION_KEYS,
   type BatchState,
@@ -41,12 +42,14 @@ export type SessionConfig = {
   gameId: GameId;
   playerCount: PlayerCount;
   difficulty?: Difficulty;
+  language?: GameLanguage;
 };
 
 export function createSession({
   gameId,
   playerCount,
   difficulty = DEFAULT_DIFFICULTY,
+  language = "en",
 }: SessionConfig): GameSession {
   const game = getGame(gameId);
   if (!game) throw new Error("unknown-game");
@@ -78,6 +81,7 @@ export function createSession({
   return {
     sessionId: uid("gs"),
     gameId,
+    language,
     difficulty,
     playerCount,
     players: playersFor(playerCount).map((p) => ({ id: p.id, name: p.name, color: p.color })),

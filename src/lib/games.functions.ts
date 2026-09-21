@@ -13,6 +13,7 @@ export type GamesBatchInput = {
   token: string;
   gameId: string;
   difficulty: string;
+  language: string;
   batchId: number;
   /** One correct-answer slot per requested question (session-wide balanced plan). */
   targets: string[];
@@ -32,6 +33,7 @@ export const gamesGenerateFn = createServerFn({ method: "POST" })
     const difficulty: Difficulty = isDifficulty(String(d.difficulty))
       ? (String(d.difficulty) as Difficulty)
       : "easy";
+    const language = String(d.language) === "hi" ? "hi" : "en";
 
     const numbers = (Array.isArray(d.questionNumbers) ? d.questionNumbers : [])
       .map((n) => Math.floor(Number(n)))
@@ -53,6 +55,7 @@ export const gamesGenerateFn = createServerFn({ method: "POST" })
       guestId,
       gameId,
       difficulty,
+      language,
       targets,
       avoid,
       seed: Math.floor(Number(d.seed) || Date.now() % 100000),

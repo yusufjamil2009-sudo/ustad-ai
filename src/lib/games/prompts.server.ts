@@ -7,6 +7,7 @@
  */
 import type { GameId } from "./config";
 import type { Difficulty } from "./config";
+import type { GameLanguage } from "./language";
 
 const GAME_RULES: Record<GameId, string> = {
   riddle: [
@@ -62,6 +63,7 @@ export type GamePromptInput = {
   gameId: GameId;
   gameName: string;
   difficulty: Difficulty;
+  language: GameLanguage;
   count: number;
   /** Question texts already accepted in this session — never repeat them. */
   avoid: string[];
@@ -77,6 +79,9 @@ export function gamePromptParts(input: GamePromptInput): { system: string; user:
     `You are the question master for the USTAD AI game "${input.gameName}".`,
     "Return STRICT JSON only — no prose, no markdown fence, no commentary.",
     `Schema: ${schema}`,
+    input.language === "hi"
+      ? "Write every question, every option, and every explanation directly in natural Devanagari Hindi. Do not draft in English and translate. Common fixed terms such as IQ may remain as used naturally in Hindi."
+      : "Write every question, every option, and every explanation in natural English. Do not include Hindi sentences.",
   ].join(" ");
 
   const avoidList = input.avoid
@@ -86,6 +91,9 @@ export function gamePromptParts(input: GamePromptInput): { system: string; user:
 
   const user = [
     `Create ${input.count} fresh ${input.gameName} questions.`,
+    input.language === "hi"
+      ? "OUTPUT LANGUAGE: Hindi (Devanagari). All user-visible text values in the JSON must be Hindi."
+      : "OUTPUT LANGUAGE: English. All user-visible text values in the JSON must be English.",
     GAME_RULES[input.gameId],
     DIFFICULTY_RULES[input.difficulty],
     "Every question must be multiple choice with EXACTLY 4 different options and EXACTLY ONE logically correct option.",

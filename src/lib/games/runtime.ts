@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { gamesGenerateFn } from "../ustad-api";
 import { buildAnswerPositionPlan, validateQuestion } from "./engine";
 import type { GameSession, OptionKey, QuestionSlot } from "./types";
+import { hasExpectedLanguage } from "./language";
 
 type Generated = {
   question: string;
@@ -65,6 +66,9 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
           accepted,
         );
         if (!check.valid) continue;
+        const language = session.language ?? "en";
+        if (!hasExpectedLanguage(row.question, language) || !hasExpectedLanguage(row.explanation, language)) continue;
+        if (Object.values(row.options).some((value) => !hasExpectedLanguage(value, language))) continue;
         accepted.push({ question: row.question });
         kept.push(row);
       }
@@ -104,6 +108,7 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
           token: "",
           gameId: session.gameId,
           difficulty: session.difficulty,
+          language: session.language ?? "en",
           batchId,
           questionNumbers: numbers,
           targets: numbers.map((n) => plan[n - 1] ?? "A"),
