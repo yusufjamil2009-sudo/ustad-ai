@@ -72,8 +72,14 @@ export function useGameRuntime(session: GameSession | null): GameRuntime {
         const language = session.language ?? "en";
         if (!hasExpectedLanguage(row.question, language) || !hasExpectedLanguage(row.explanation, language)) continue;
         if (Object.values(row.options).some((value) => value.length >= 14 && !hasExpectedLanguage(value, language))) continue;
+        // Same answer-bias gate as the server: a question whose correct option
+        // is guessable from its appearance is never shown.
+        const values = OPTION_KEYS.map((key) => row.options[key] ?? "");
+        const correctIndex = OPTION_KEYS.indexOf(row.correctAnswer);
+        if (!analyzeOptionBias(values, correctIndex, row.question).ok) continue;
         accepted.push({ question: row.question });
         kept.push(row);
+
       }
       if (!kept.length) return [];
       setSlots((prev) =>
