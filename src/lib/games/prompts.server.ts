@@ -59,7 +59,23 @@ const DIFFICULTY_RULES: Record<Difficulty, string> = {
   god: "GOD LEVEL: significantly deeper reasoning — layered clues, multiple interacting conditions, subtle patterns, misleading assumptions and unusual but strictly logical structures. Do NOT just use bigger numbers; make the REASONING deeper while keeping exactly one defensible answer.",
 };
 
+/**
+ * Anti-bias rules. The correct answer must never be identifiable from how the
+ * options LOOK — only from the logic of the question. Equal believability, not
+ * identical word count.
+ */
+const OPTION_BALANCE = [
+  "OPTION BALANCE (mandatory): all four options must feel written by the same writer — comparable length, detail, structure, punctuation and style.",
+  "The correct option must NOT be the longest, the shortest, the only complete sentence, the only one with numbers or precise detail, the only one with reasoning words (because/therefore/क्योंकि/इसलिए), or the only one punctuated differently.",
+  "Natural variation is fine (18/17/20/19 words is good); a giveaway gap (30/3/4/5) is forbidden.",
+  "Never put the explanation inside an option. Reasoning goes ONLY in the explanation field.",
+  "Never let the correct option copy unique key words from the question that no wrong option uses.",
+  "Each wrong option must be a strong distractor: relevant, believable, grammatically correct, in the SAME answer space (words stay words, numbers stay numbers, categories stay categories) and based on a realistic reasoning mistake — ignoring a condition, reversing a relationship, a tempting incomplete pattern, a plausible alternative rule or a confused related concept. Never random nonsense.",
+  "Do NOT fix balance by making all options tiny. Make them equally believable.",
+].join(" ");
+
 export type GamePromptInput = {
+
   gameId: GameId;
   gameName: string;
   difficulty: Difficulty;
