@@ -500,58 +500,77 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     }
   }
 
-  // 2. Bootstrap: no auto event exists yet → open one immediately.
-  const anyStarted = rows.some(
-    (e) => e["start_time"] && Date.parse(String(e["start_time"])) <= nowMs,
-  );
-  if (!anyStarted && rows.length === 0) {
+  // 2. Keep LIVE_TARGET different events playable at the same time. Each one is
+  //    invented separately (its own theme, length, pace and rewards), so the
+  //    stream is unlimited instead of a single永 event.
+  const isLive = (e: Row): boolean => {
+    const start = e["start_time"] ? Date.parse(String(e["start_time"])) : NaN;
+    const end = e["end_time"] ? Date.parse(String(e["end_time"])) : NaN;
+    const status = String(e["status"]);
+    return (
+      (status === "open" || status === "active" || status === "scheduled") &&
+      Number.isFinite(start) &&
+      start <= nowMs &&
+      (!Number.isFinite(end) || end > nowMs)
+    );
+  };
+
+  // 2a. Retire only events that have actually finished; a live event is never
+  //     removed just because a newer one exists.
+  for (const row of rows) {
+    const end = row["end_time"] ? Date.parse(String(row["end_time"])) : NaN;
+    const status = String(row["status"]);
+    const finished = Number.isFinite(end) && end <= nowMs;
+    if (finished && status !== "archived") {
+      if (await retire(row, nowIso)) report.retired.push(String(row["code"]));
+    }
+  }
+
+  rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
+
+  // 2b. Top up the live slate.
+  let liveRows = rows.filter(isLive);
+  let guard = 0;
+  while (liveRows.length < LIVE_TARGET && guard < LIVE_TARGET) {
+    guard += 1;
     const all = await autoEvents();
     const index = all.length;
     const gap = pick(GAP_DAYS, index);
     const made = await createAutoEvent(index, nowMs - 60_000, gap);
-    if (made) report.created.push(made);
+    if (!made) break;
+    report.created.push(made);
     rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
     for (const row of rows) {
-      if (String(row["status"]) === "scheduled") {
+      const start = row["start_time"] ? Date.parse(String(row["start_time"])) : NaN;
+      if (String(row["status"]) === "scheduled" && Number.isFinite(start) && start <= nowMs) {
         const next = await setStatus(row, "open", { published_at: nowIso });
         if (next) Object.assign(row, next);
       }
     }
+    liveRows = rows.filter(isLive);
   }
 
-  const started = rows
-    .filter((e) => e["start_time"] && Date.parse(String(e["start_time"])) <= nowMs)
-    .sort((a, b) => Date.parse(String(b["start_time"])) - Date.parse(String(a["start_time"])));
-  const current = started[0] ?? null;
-  const upcoming = rows
-    .filter((e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs)
-    .sort((a, b) => Date.parse(String(a["start_time"])) - Date.parse(String(b["start_time"])))[0];
-
-  // 3. One event at a time: everything older than the current one is retired.
-  for (const row of started.slice(1)) {
-    if (await retire(row, nowIso)) report.retired.push(String(row["code"]));
+  // 3. Announce upcoming events early so the EXISTING reminder scheduler can
+  //    deliver its 3-day / 2-day / 1-day / LIVE notifications.
+  let upcomingRows = rows.filter(
+    (e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs,
+  );
+  let announceGuard = 0;
+  while (upcomingRows.length < UPCOMING_TARGET && announceGuard < UPCOMING_TARGET) {
+    announceGuard += 1;
+    const all = await autoEvents();
+    const index = all.length;
+    const gap = pick(GAP_DAYS, index);
+    const startAt = nowMs + (upcomingRows.length + 1) * ANNOUNCE_LEAD_MS;
+    const made = await createAutoEvent(index, startAt, gap);
+    if (!made) break;
+    report.created.push(made);
+    rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
+    upcomingRows = rows.filter(
+      (e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs,
+    );
   }
 
-  // 4. Announce the next event ~3.5 days early so reminders can go out.
-  if (current && !upcoming) {
-    const cfg = (current["gameplay_config"] ?? {}) as Row;
-    const plannedIso = cfg["nextStartAt"]
-      ? String(cfg["nextStartAt"])
-      : String(current["end_time"]);
-    let plannedMs = Date.parse(plannedIso);
-    if (!Number.isFinite(plannedMs)) plannedMs = nowMs + 7 * DAY;
-    // If the current event already ended (it stayed live until now), start the
-    // next one shortly, so the stream never has a hole.
-    if (plannedMs <= nowMs) plannedMs = nowMs + 5 * 60_000;
-
-    if (plannedMs - nowMs <= ANNOUNCE_LEAD_MS) {
-      const all = await autoEvents();
-      const index = Math.max(all.length, seriesNumber(String(current["code"])));
-      const gap = pick(GAP_DAYS, index);
-      const made = await createAutoEvent(index, plannedMs, gap);
-      if (made) report.created.push(made);
-    }
-  }
 
   const fresh = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
   const live =
