@@ -10,9 +10,20 @@ import { parseJsonLoose, salvageJsonObjects } from "../exam-ai.server";
 import { route, runChat, selectChatProviders } from "../router.server";
 import type { ChatMessage } from "../provider-clients.server";
 import { getGame, type Difficulty, type GameId } from "./config";
-import { gamePromptParts } from "./prompts.server";
+import { biasRepairPromptParts, gamePromptParts } from "./prompts.server";
 import { OPTION_KEYS, type OptionKey } from "./types";
 import { hasExpectedLanguage, type GameLanguage } from "./language";
+import { analyzeOptionBias, biasIssueHints, type BiasIssue } from "./option-bias";
+
+/** A question that is otherwise valid but whose options give the answer away. */
+type BiasedRow = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  issues: BiasIssue[];
+};
+
 
 export type GeneratedGameQuestion = {
   question: string;
