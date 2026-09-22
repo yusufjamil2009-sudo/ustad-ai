@@ -210,6 +210,61 @@ export function generateWeeklyOffer(cycle: RankCycle): WeeklyOffer {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Daily cycle (one offer every India-time day)                        */
+/* ------------------------------------------------------------------ */
+
+/** India-time calendar date (YYYY-MM-DD) for an instant. */
+export function istDateString(at: Date | string | number = new Date()): string {
+  const d = new Date(new Date(at).getTime() + IST_OFFSET_MS);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * A one-day India-time cycle. The persistence layer stores one offer row per
+ * cycle start, so a daily cycle means exactly ONE offer per day — never two,
+ * and never a week without one.
+ */
+export function dailyCycle(at: Date | string | number = new Date()): RankCycle {
+  const start = istDateString(at);
+  const end = istDateString(new Date(Date.parse(`${start}T00:00:00Z`) + 86_400_000));
+  return {
+    start,
+    end,
+    startIso: new Date(Date.parse(`${start}T00:00:00Z`) - IST_OFFSET_MS).toISOString(),
+    endIso: new Date(Date.parse(`${end}T00:00:00Z`) - IST_OFFSET_MS).toISOString(),
+    id: `day:${start}`,
+  } as RankCycle;
+}
+
+/**
+ * Deterministically pick the single offer for one India-time day: a random
+ * 10–70% discount and a random 10-minute…3-hour window inside 07:00–20:00.
+ * Same date always resolves to the same offer (idempotent), different dates
+ * vary.
+ */
+export function generateDailyOffer(cycle: RankCycle): WeeklyOffer {
+  const rand = seededRandom(seedFromCycle(cycle));
+  const discountPct =
+    OFFER_MIN_DISCOUNT_PCT +
+    Math.floor(rand() * (OFFER_MAX_DISCOUNT_PCT - OFFER_MIN_DISCOUNT_PCT + 1));
+  const durationMinutes =
+    OFFER_MIN_DURATION_MINUTES +
+    Math.floor(rand() * (OFFER_MAX_DURATION_MINUTES - OFFER_MIN_DURATION_MINUTES + 1));
+  const latestStart = OFFER_DAY_END - durationMinutes;
+  const startMinute = OFFER_DAY_START + Math.floor(rand() * (latestStart - OFFER_DAY_START + 1));
+  const { startIso, endIso } = offerWindowIso(cycle, 0, startMinute, durationMinutes);
+  return {
+    cycle,
+    dayOffset: 0,
+    startIso,
+    endIso,
+    discountPct,
+    durationMinutes,
+    weeklyOfferId: `offer:${cycle.start}:0:${discountPct}:${durationMinutes}`,
+  };
+}
+
 /** The offer belonging to the current cycle. */
 export function offerForNow(now: Date | string | number = new Date()): WeeklyOffer {
   return generateWeeklyOffer(currentCycle(now));
