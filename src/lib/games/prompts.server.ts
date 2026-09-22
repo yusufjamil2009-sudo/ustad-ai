@@ -59,7 +59,23 @@ const DIFFICULTY_RULES: Record<Difficulty, string> = {
   god: "GOD LEVEL: significantly deeper reasoning — layered clues, multiple interacting conditions, subtle patterns, misleading assumptions and unusual but strictly logical structures. Do NOT just use bigger numbers; make the REASONING deeper while keeping exactly one defensible answer.",
 };
 
+/**
+ * Anti-bias rules. The correct answer must never be identifiable from how the
+ * options LOOK — only from the logic of the question. Equal believability, not
+ * identical word count.
+ */
+const OPTION_BALANCE = [
+  "OPTION BALANCE (mandatory): all four options must feel written by the same writer — comparable length, detail, structure, punctuation and style.",
+  "The correct option must NOT be the longest, the shortest, the only complete sentence, the only one with numbers or precise detail, the only one with reasoning words (because/therefore/क्योंकि/इसलिए), or the only one punctuated differently.",
+  "Natural variation is fine (18/17/20/19 words is good); a giveaway gap (30/3/4/5) is forbidden.",
+  "Never put the explanation inside an option. Reasoning goes ONLY in the explanation field.",
+  "Never let the correct option copy unique key words from the question that no wrong option uses.",
+  "Each wrong option must be a strong distractor: relevant, believable, grammatically correct, in the SAME answer space (words stay words, numbers stay numbers, categories stay categories) and based on a realistic reasoning mistake — ignoring a condition, reversing a relationship, a tempting incomplete pattern, a plausible alternative rule or a confused related concept. Never random nonsense.",
+  "Do NOT fix balance by making all options tiny. Make them equally believable.",
+].join(" ");
+
 export type GamePromptInput = {
+
   gameId: GameId;
   gameName: string;
   difficulty: Difficulty;
@@ -101,6 +117,7 @@ export function gamePromptParts(input: GamePromptInput): { system: string; user:
     'Include a short "explanation" (max 2 sentences) that explains the actual reasoning, not just which letter is right.',
     "Each question must be self-contained, understandable on a small phone screen and free of images.",
     "The three wrong options must be plausible but clearly wrong once the reasoning is done.",
+    OPTION_BALANCE,
     `Variation seed ${input.seed}: avoid your usual first picks, change the subject matter and wording completely.`,
     avoidList
       ? `Do NOT repeat, paraphrase or lightly reword any of these already-used questions:\n${avoidList}`
@@ -111,3 +128,42 @@ export function gamePromptParts(input: GamePromptInput): { system: string; user:
 
   return { system, user };
 }
+
+/**
+ * Repair prompt: the question and its logical answer stay the same, only the
+ * options are rebalanced so the correct one is no longer guessable by looks.
+ */
+export function biasRepairPromptParts(input: {
+  gameName: string;
+  language: GameLanguage;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  hints: string[];
+}): { system: string; user: string } {
+  const system = [
+    `You repair multiple-choice options for the USTAD AI game "${input.gameName}".`,
+    "Return STRICT JSON only:",
+    '{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}',
+    input.language === "hi"
+      ? "Everything must be natural Devanagari Hindi."
+      : "Everything must be natural English.",
+  ].join(" ");
+
+  const user = [
+    "Keep the question and the logical correct answer exactly as they are — do NOT change the meaning of the correct answer.",
+    "Rewrite the weak wrong options (and, only if unavoidable, reword the correct option without changing its meaning) so that all four are naturally comparable in length, detail, structure, punctuation and believability.",
+    "Problems detected:",
+    ...input.hints.map((h) => `- ${h}`),
+    OPTION_BALANCE,
+    `QUESTION: ${input.question}`,
+    `OPTIONS: ${JSON.stringify(input.options)}`,
+    `CORRECT INDEX: ${input.correctIndex}`,
+    `EXPLANATION: ${input.explanation}`,
+    "Return exactly 4 options and the correctIndex of the same logical answer in the new array.",
+  ].join("\n");
+
+  return { system, user };
+}
+
