@@ -871,6 +871,7 @@ function PrefsPanel() {
         </div>
       ))}
 
+      <CoinClaimCard />
     </div>
   );
 }
