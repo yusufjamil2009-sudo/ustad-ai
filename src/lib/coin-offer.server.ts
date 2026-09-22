@@ -24,8 +24,9 @@ import { notifyGuest } from "./notification.server";
 import { applyCoins } from "./wallet.server";
 import { currentCycle, previousCycle, type RankCycle } from "./rank-spec";
 import {
+  dailyCycle,
   discountAmount,
-  generateWeeklyOffer,
+  generateDailyOffer,
   isOfferLive,
   isOfferUpcoming,
   offerFinalPrice,
@@ -51,7 +52,7 @@ async function loadOrCreateOffer(cycle: RankCycle): Promise<Row> {
     .maybeSingle();
   if (data) return data as Row;
 
-  const off = generateWeeklyOffer(cycle);
+  const off = generateDailyOffer(cycle);
   const { data: created, error } = await sdb()
     .from("ustad_coin_offers")
     .insert({
@@ -106,7 +107,7 @@ export async function offerForCycle(cycle: RankCycle): Promise<WeeklyOffer> {
 
 /** The active offer right now, or null when none is live. */
 export async function activeOffer(now: Date = new Date()): Promise<WeeklyOffer | null> {
-  const off = await offerForCycle(currentCycle(now));
+  const off = await offerForCycle(dailyCycle(now));
   // Only consider live if inside the window AND rules hold.
   if (!isOfferLive(off, now)) return null;
   return off;
@@ -243,7 +244,7 @@ export async function recordOfferPurchase(input: {
  */
 export async function offerNotificationsForGuest(guestId: string): Promise<void> {
   const now = new Date();
-  const off = await offerForCycle(currentCycle(now)).catch(() => null);
+  const off = await offerForCycle(dailyCycle(now)).catch(() => null);
   if (!off) return;
 
   if (isOfferLive(off, now)) {
@@ -285,9 +286,13 @@ export async function offerNotificationsForGuest(guestId: string): Promise<void>
   }
 }
 
+/** The cycle whose single offer is authoritative right now (one per IST day). */
+export const currentOfferCycle = dailyCycle;
+
 export {
   previousCycle,
   currentCycle,
+  dailyCycle,
   isOfferLive,
   isOfferUpcoming,
   offerFinalPrice,

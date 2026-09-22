@@ -21,7 +21,7 @@ export const coinOfferBannerFn = createServerFn({ method: "POST" })
     const guestId = await requireGuest(d.token);
     const locale = await guestLocale(guestId);
     const now = new Date();
-    const off = await offer.offerForCycle(offer.currentCycle(now)).catch(() => null);
+    const off = await offer.offerForCycle(offer.currentOfferCycle(now)).catch(() => null);
     if (!off) return { available: false, reason: "no_offer", language: locale.language };
 
     const live = offer.isOfferLive(off, now);
