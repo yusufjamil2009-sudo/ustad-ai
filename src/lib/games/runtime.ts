@@ -10,6 +10,9 @@ import { gamesGenerateFn } from "../ustad-api";
 import { buildAnswerPositionPlan, validateQuestion } from "./engine";
 import type { GameSession, OptionKey, QuestionSlot } from "./types";
 import { hasExpectedLanguage } from "./language";
+import { analyzeOptionBias } from "./option-bias";
+import { OPTION_KEYS } from "./types";
+
 
 type Generated = {
   question: string;
