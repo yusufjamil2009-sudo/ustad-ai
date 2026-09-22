@@ -118,10 +118,59 @@ export function CoinOfferBanner({ token }: { token: string }) {
     pct <= 70 &&
     windowOpen;
 
-  if (!active) return null;
+  /**
+   * Before the window opens, the banner announces TODAY's real server-scheduled
+   * offer ("coming soon") instead of rendering nothing, so the offer system is
+   * visible every day. Both states read the same server view; the client never
+   * decides the schedule or the discount.
+   */
+  const soon =
+    checked &&
+    state?.available === true &&
+    state.upcoming === true &&
+    pct >= 10 &&
+    pct <= 70 &&
+    Number.isFinite(startMs) &&
+    now < startMs;
+
+  if (!active && !soon) return null;
 
   const language: Language = state.language ?? "english";
   const t = UI_TEXT[language];
+
+  if (!active) {
+    const comingBody = `${fillTokens(t.offerComingBodyLead, { pct })} ${fillTokens(
+      t.offerComingBodyBetween,
+      { day: istDay(state.startIso), start: istClock(state.startIso), end: istClock(state.endIso) },
+    )}`;
+    return (
+      <Link
+        to="/shop"
+        data-testid="coin-offer-banner"
+        aria-label={`${t.offerComingTitle} — ${pct}%`}
+        className="mb-6 flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/40 px-4 py-3 no-underline transition-colors hover:border-border hover:bg-muted/60 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-amber-500/70 to-red-600/70 text-white shadow"
+            aria-hidden
+          >
+            <Flame className="size-5" />
+          </span>
+          <div>
+            <p data-testid="coin-offer-title" data-live="0" className="text-sm font-bold text-foreground">
+              {t.offerComingTitle}
+              <span className="font-semibold"> — {pct}%</span>
+            </p>
+            <p className="text-xs text-muted-foreground">{comingBody}</p>
+          </div>
+        </div>
+        <span className="mt-2 shrink-0 self-start rounded-full bg-foreground/5 px-3 py-1 text-[11px] font-semibold text-muted-foreground sm:mt-0 sm:self-center">
+          {t.offerChip}
+        </span>
+      </Link>
+    );
+  }
 
   const liveBody = `${fillTokens(t.offerLiveBodyLead, { pct })} ${fillTokens(t.offerLiveBodyEnd, {
     time: istClock(state.endIso),
