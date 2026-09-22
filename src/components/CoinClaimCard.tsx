@@ -137,7 +137,7 @@ export function CoinClaimCard() {
                     : "900 CRORE USTAD COINS ADDED"}
                 </p>
                 <p className="text-muted-foreground">
-                  Balance: {formatCoins(state.balance)} USTAD Coins
+                  Balance: {formatCoins(state.balance)}
                 </p>
               </div>
             ) : null}
