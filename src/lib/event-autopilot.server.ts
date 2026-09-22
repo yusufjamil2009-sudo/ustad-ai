@@ -31,6 +31,11 @@ type Row = Record<string, any>;
 
 const DAY = 86_400_000;
 /** How early the next event row appears, so 3-day reminders can be delivered. */
+/** How many auto events stay playable at the same time. */
+export const LIVE_TARGET = 5;
+/** How many future events stay announced ahead of time. */
+export const UPCOMING_TARGET = 3;
+
 const ANNOUNCE_LEAD_MS = 3.5 * DAY;
 /** Rotating cadence — "hafte hafte, ya 10 din, ya 12-13 din". */
 const GAP_DAYS = [7, 10, 12, 13] as const;
@@ -502,7 +507,7 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
 
   // 2. Keep LIVE_TARGET different events playable at the same time. Each one is
   //    invented separately (its own theme, length, pace and rewards), so the
-  //    stream is unlimited instead of a single永 event.
+  //    stream is unlimited instead of a single frozen event.
   const isLive = (e: Row): boolean => {
     const start = e["start_time"] ? Date.parse(String(e["start_time"])) : NaN;
     const end = e["end_time"] ? Date.parse(String(e["end_time"])) : NaN;
