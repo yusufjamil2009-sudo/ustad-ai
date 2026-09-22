@@ -52,6 +52,7 @@ import { AchievementShowcase } from "@/components/AchievementShowcase";
 import { CertificateSection } from "@/components/CertificateSection";
 import { ProfileLeaderboard } from "@/components/ProfileLeaderboard";
 import { ProfileIdentity } from "@/components/ProfileIdentity";
+import { CoinClaimCard } from "@/components/CoinClaimCard";
 import {
   listApiConfigsFn,
   saveApiConfigFn,
