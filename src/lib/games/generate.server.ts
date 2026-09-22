@@ -91,6 +91,8 @@ function clean(
   targets: OptionKey[],
   seenFingerprints: string[],
   language: GameLanguage,
+  /** Rows rejected ONLY because their options give the answer away. */
+  biasedOut?: BiasedRow[],
 ): GeneratedGameQuestion[] {
   const out: GeneratedGameQuestion[] = [];
   const seen = [...seenFingerprints];
@@ -126,6 +128,14 @@ function clean(
     if (!fp || seen.some((s) => tooSimilar(s, fp))) continue;
     seen.push(fp);
 
+    // ANSWER-BIAS GATE: the correct option must not be identifiable from how it
+    // looks. A failing question is never shown — it goes to the repair pass.
+    const bias = analyzeOptionBias(values, correctIndex, question);
+    if (!bias.ok) {
+      biasedOut?.push({ question, options: values, correctIndex, explanation, issues: bias.issues });
+      continue;
+    }
+
     // The correct answer position comes from the session-wide balanced plan,
     // never from the model — so it cannot drift towards A/B.
     const target = targets[out.length]!;
@@ -140,6 +150,7 @@ function clean(
 
   return out;
 }
+
 
 /**
  * Generate up to `targets.length` questions for ONE game at ONE difficulty.
