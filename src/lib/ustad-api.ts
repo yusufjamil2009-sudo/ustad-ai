@@ -10,6 +10,7 @@
 import * as fns from "./ustad.functions";
 import * as examFns from "./exam.functions";
 import * as gameFns from "./games.functions";
+import * as claimFns from "./claim.functions";
 import { currentToken, recoverGuest } from "./ustad-client";
 
 const RECOVERABLE = /invalid guest session|guest session expired|guest signing secret/i;
@@ -150,3 +151,6 @@ export const gamesGenerateFn = wrap(gameFns.gamesGenerateFn);
 export const gamesDailyStatusFn = wrap(gameFns.gamesDailyStatusFn);
 export const gamesDailyStartFn = wrap(gameFns.gamesDailyStartFn);
 export const gamesDailyProgressFn = wrap(gameFns.gamesDailyProgressFn);
+
+// USTAD Coins claim (server-verified password, server-fixed reward).
+export const claimCoinsFn = wrap(claimFns.claimCoinsFn);
