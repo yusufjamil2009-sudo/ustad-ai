@@ -174,18 +174,8 @@ export async function generateGameQuestions(input: {
   const collected: GeneratedGameQuestion[] = [];
   const seen = input.avoid.map(fingerprint).filter(Boolean);
 
-  for (let round = 0; round < 3 && collected.length < count; round += 1) {
-    const need = count - collected.length;
-    const { system, user } = gamePromptParts({
-      gameId: game.id,
-      gameName: game.name,
-      difficulty: input.difficulty,
-      language: input.language,
-      count: need,
-      avoid: [...input.avoid, ...collected.map((q) => q.question)],
-      seed: input.seed + round * 977,
-    });
-
+  /** One chat call through the existing router / API Manager / Core chain. */
+  const ask = async (system: string, user: string): Promise<string> => {
     const available = await usableProviders(input.guestId);
     const decision = route({
       text: `${user} game question generation`,
@@ -199,29 +189,80 @@ export async function generateGameQuestions(input: {
         "No AI provider is configured. Add a provider in Settings → API Manager to play.",
       );
     }
-
     const messages: ChatMessage[] = [
       { role: "system", content: system },
       { role: "user", content: user },
     ];
     const res = await runChat({ candidates, messages, maxTokens: 3000 });
+    return res.text;
+  };
 
-    let rows: RawQ[] = [];
+  const parseRows = (text: string): RawQ[] => {
     try {
-      const parsed = parseJsonLoose<{ questions?: RawQ[] } | RawQ[]>(res.text);
-      rows = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
+      const parsed = parseJsonLoose<{ questions?: RawQ[] } | RawQ[]>(text);
+      return Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
     } catch {
-      rows = salvageJsonObjects(res.text) as RawQ[];
+      return salvageJsonObjects(text) as RawQ[];
     }
+  };
+
+  /**
+   * Repair pass: the question and its logical answer stay; only the options are
+   * rebalanced. One attempt per question — a question that still fails is simply
+   * not shown, and the caller retries that single question.
+   */
+  const repair = async (row: BiasedRow, slots: OptionKey[]): Promise<GeneratedGameQuestion[]> => {
+    try {
+      const parts = biasRepairPromptParts({
+        gameName: game.name,
+        language: input.language,
+        question: row.question,
+        options: row.options,
+        correctIndex: row.correctIndex,
+        explanation: row.explanation,
+        hints: biasIssueHints(row.issues),
+      });
+      const rows = parseRows(await ask(parts.system, parts.user));
+      if (!rows.length) return [];
+      return clean(rows, input.difficulty, slots, [
+        ...seen,
+        ...collected.map((q) => fingerprint(q.question)),
+      ], input.language);
+    } catch {
+      return [];
+    }
+  };
+
+  for (let round = 0; round < 3 && collected.length < count; round += 1) {
+    const need = count - collected.length;
+    const { system, user } = gamePromptParts({
+      gameId: game.id,
+      gameName: game.name,
+      difficulty: input.difficulty,
+      language: input.language,
+      count: need,
+      avoid: [...input.avoid, ...collected.map((q) => q.question)],
+      seed: input.seed + round * 977,
+    });
+
+    const rows = parseRows(await ask(system, user));
     if (!rows.length) continue;
 
-    const slots = input.targets.slice(collected.length, collected.length + need);
-    const fresh = clean(rows, input.difficulty, slots, [
+    const biased: BiasedRow[] = [];
+    const slots = () => input.targets.slice(collected.length, count);
+    const fresh = clean(rows, input.difficulty, slots(), [
       ...seen,
       ...collected.map((q) => fingerprint(q.question)),
-    ], input.language);
+    ], input.language, biased);
     collected.push(...fresh);
+
+    for (const row of biased) {
+      if (collected.length >= count) break;
+      const fixed = await repair(row, slots());
+      collected.push(...fixed.slice(0, count - collected.length));
+    }
   }
 
   return collected.slice(0, count);
+
 }
