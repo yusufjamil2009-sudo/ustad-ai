@@ -423,14 +423,16 @@ async function retire(event: Row, nowIso: string): Promise<boolean> {
 async function createAutoEvent(
   index: number,
   startMs: number,
-  gapDays: number,
+  endMs: number,
 ): Promise<{ code: string; name: string; startTime: string; endTime: string } | null> {
   const bp = await inventBlueprint(index);
   const code = `ustad-auto-${bp.slug}-${index + 1}`.slice(0, 90);
   const startTime = new Date(startMs).toISOString();
-  // The event stays live and playable right up to the moment the next one opens.
-  const endTime = new Date(startMs + gapDays * DAY).toISOString();
+  // Every event of a batch ends at the same moment, so all 5 rotate together.
+  const endTime = new Date(endMs).toISOString();
   const nextStartAt = endTime;
+  const gapDays = BATCH_DAYS;
+
 
   const { data, error } = await sdb()
     .from("master_events")
