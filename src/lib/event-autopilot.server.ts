@@ -543,15 +543,17 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
 
   rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
 
-  // 2b. Top up the live slate.
+  // 2b. Top up the live slate: all 5 events share the CURRENT 7-day window, so
+  //     they go live together and retire together.
+  const curStart = batchStart(nowMs);
+  const curEnd = curStart + BATCH_DAYS * DAY;
   let liveRows = rows.filter(isLive);
   let guard = 0;
   while (liveRows.length < LIVE_TARGET && guard < LIVE_TARGET) {
     guard += 1;
     const all = await autoEvents();
     const index = all.length;
-    const gap = pick(GAP_DAYS, index);
-    const made = await createAutoEvent(index, nowMs - 60_000, gap);
+    const made = await createAutoEvent(index, Math.min(nowMs - 60_000, curStart), curEnd);
     if (!made) break;
     report.created.push(made);
     rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
@@ -565,8 +567,9 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     liveRows = rows.filter(isLive);
   }
 
-  // 3. Announce upcoming events early so the EXISTING reminder scheduler can
-  //    deliver its 3-day / 2-day / 1-day / LIVE notifications.
+  // 3. Announce the NEXT batch of 5 events up front (they start exactly when the
+  //    current batch ends), so the EXISTING reminder scheduler can deliver its
+  //    3-day / 2-day / 1-day / LIVE notifications.
   let upcomingRows = rows.filter(
     (e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs,
   );
@@ -575,9 +578,7 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     announceGuard += 1;
     const all = await autoEvents();
     const index = all.length;
-    const gap = pick(GAP_DAYS, index);
-    const startAt = nowMs + (upcomingRows.length + 1) * ANNOUNCE_LEAD_MS;
-    const made = await createAutoEvent(index, startAt, gap);
+    const made = await createAutoEvent(index, curEnd, curEnd + BATCH_DAYS * DAY);
     if (!made) break;
     report.created.push(made);
     rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
@@ -585,6 +586,7 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
       (e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs,
     );
   }
+
 
 
   const fresh = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
