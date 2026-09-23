@@ -30,15 +30,23 @@ const sdb = () => db() as any;
 type Row = Record<string, any>;
 
 const DAY = 86_400_000;
-/** How early the next event row appears, so 3-day reminders can be delivered. */
 /** How many auto events stay playable at the same time. */
 export const LIVE_TARGET = 5;
-/** How many future events stay announced ahead of time. */
-export const UPCOMING_TARGET = 3;
+/** The whole batch of 5 events runs for exactly this many days, then rotates. */
+export const BATCH_DAYS = 7;
+/** How many future events stay announced ahead of time (the next full batch). */
+export const UPCOMING_TARGET = 5;
 
-const ANNOUNCE_LEAD_MS = 3.5 * DAY;
-/** Rotating cadence — "hafte hafte, ya 10 din, ya 12-13 din". */
-const GAP_DAYS = [7, 10, 12, 13] as const;
+/** Anchor for the 7-day batch grid: Mon 2026-01-05 00:00 IST. */
+const BATCH_ANCHOR_MS = Date.parse("2026-01-04T18:30:00.000Z");
+
+/** Start (ms) of the 7-day batch window that contains `nowMs`. */
+function batchStart(nowMs: number): number {
+  const span = BATCH_DAYS * DAY;
+  const diff = nowMs - BATCH_ANCHOR_MS;
+  return BATCH_ANCHOR_MS + Math.floor(diff / span) * span;
+}
+
 
 export type EventBlueprint = {
   slug: string;
@@ -415,14 +423,16 @@ async function retire(event: Row, nowIso: string): Promise<boolean> {
 async function createAutoEvent(
   index: number,
   startMs: number,
-  gapDays: number,
+  endMs: number,
 ): Promise<{ code: string; name: string; startTime: string; endTime: string } | null> {
   const bp = await inventBlueprint(index);
   const code = `ustad-auto-${bp.slug}-${index + 1}`.slice(0, 90);
   const startTime = new Date(startMs).toISOString();
-  // The event stays live and playable right up to the moment the next one opens.
-  const endTime = new Date(startMs + gapDays * DAY).toISOString();
+  // Every event of a batch ends at the same moment, so all 5 rotate together.
+  const endTime = new Date(endMs).toISOString();
   const nextStartAt = endTime;
+  const gapDays = BATCH_DAYS;
+
 
   const { data, error } = await sdb()
     .from("master_events")
@@ -505,6 +515,34 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     }
   }
 
+  // 1b. Snap every non-archived auto event onto the 7-day batch grid, so a batch
+  //     of 5 always starts together and retires together.
+  {
+    const cs = batchStart(nowMs);
+    const ce = cs + BATCH_DAYS * DAY;
+    for (const row of rows) {
+      const start = row["start_time"] ? Date.parse(String(row["start_time"])) : NaN;
+      if (!Number.isFinite(start)) continue;
+      const future = start > nowMs;
+      const wantStart = future ? ce : Math.min(start, cs);
+      const wantEnd = future ? ce + BATCH_DAYS * DAY : ce;
+      const end = row["end_time"] ? Date.parse(String(row["end_time"])) : NaN;
+      if (start === wantStart && end === wantEnd) continue;
+      const { data } = await sdb()
+        .from("master_events")
+        .update({
+          start_time: new Date(wantStart).toISOString(),
+          end_time: new Date(wantEnd).toISOString(),
+          updated_at: nowIso,
+        })
+        .eq("id", row["id"])
+        .select()
+        .maybeSingle();
+      if (data) Object.assign(row, data as Row);
+    }
+  }
+
+
   // 2. Keep LIVE_TARGET different events playable at the same time. Each one is
   //    invented separately (its own theme, length, pace and rewards), so the
   //    stream is unlimited instead of a single frozen event.
@@ -533,15 +571,17 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
 
   rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
 
-  // 2b. Top up the live slate.
+  // 2b. Top up the live slate: all 5 events share the CURRENT 7-day window, so
+  //     they go live together and retire together.
+  const curStart = batchStart(nowMs);
+  const curEnd = curStart + BATCH_DAYS * DAY;
   let liveRows = rows.filter(isLive);
   let guard = 0;
   while (liveRows.length < LIVE_TARGET && guard < LIVE_TARGET) {
     guard += 1;
     const all = await autoEvents();
     const index = all.length;
-    const gap = pick(GAP_DAYS, index);
-    const made = await createAutoEvent(index, nowMs - 60_000, gap);
+    const made = await createAutoEvent(index, Math.min(nowMs - 60_000, curStart), curEnd);
     if (!made) break;
     report.created.push(made);
     rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
@@ -555,8 +595,9 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     liveRows = rows.filter(isLive);
   }
 
-  // 3. Announce upcoming events early so the EXISTING reminder scheduler can
-  //    deliver its 3-day / 2-day / 1-day / LIVE notifications.
+  // 3. Announce the NEXT batch of 5 events up front (they start exactly when the
+  //    current batch ends), so the EXISTING reminder scheduler can deliver its
+  //    3-day / 2-day / 1-day / LIVE notifications.
   let upcomingRows = rows.filter(
     (e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs,
   );
@@ -565,9 +606,7 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     announceGuard += 1;
     const all = await autoEvents();
     const index = all.length;
-    const gap = pick(GAP_DAYS, index);
-    const startAt = nowMs + (upcomingRows.length + 1) * ANNOUNCE_LEAD_MS;
-    const made = await createAutoEvent(index, startAt, gap);
+    const made = await createAutoEvent(index, curEnd, curEnd + BATCH_DAYS * DAY);
     if (!made) break;
     report.created.push(made);
     rows = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
@@ -575,6 +614,7 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
       (e) => e["start_time"] && Date.parse(String(e["start_time"])) > nowMs,
     );
   }
+
 
 
   const fresh = (await autoEvents()).filter((e) => String(e["status"]) !== "archived");
