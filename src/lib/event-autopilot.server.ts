@@ -30,15 +30,23 @@ const sdb = () => db() as any;
 type Row = Record<string, any>;
 
 const DAY = 86_400_000;
-/** How early the next event row appears, so 3-day reminders can be delivered. */
 /** How many auto events stay playable at the same time. */
 export const LIVE_TARGET = 5;
-/** How many future events stay announced ahead of time. */
-export const UPCOMING_TARGET = 3;
+/** The whole batch of 5 events runs for exactly this many days, then rotates. */
+export const BATCH_DAYS = 7;
+/** How many future events stay announced ahead of time (the next full batch). */
+export const UPCOMING_TARGET = 5;
 
-const ANNOUNCE_LEAD_MS = 3.5 * DAY;
-/** Rotating cadence — "hafte hafte, ya 10 din, ya 12-13 din". */
-const GAP_DAYS = [7, 10, 12, 13] as const;
+/** Anchor for the 7-day batch grid: Mon 2026-01-05 00:00 IST. */
+const BATCH_ANCHOR_MS = Date.parse("2026-01-04T18:30:00.000Z");
+
+/** Start (ms) of the 7-day batch window that contains `nowMs`. */
+function batchStart(nowMs: number): number {
+  const span = BATCH_DAYS * DAY;
+  const diff = nowMs - BATCH_ANCHOR_MS;
+  return BATCH_ANCHOR_MS + Math.floor(diff / span) * span;
+}
+
 
 export type EventBlueprint = {
   slug: string;
