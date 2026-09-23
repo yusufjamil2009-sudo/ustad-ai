@@ -515,6 +515,34 @@ export async function runEventAutopilotTick(now: Date = new Date()): Promise<Aut
     }
   }
 
+  // 1b. Snap every non-archived auto event onto the 7-day batch grid, so a batch
+  //     of 5 always starts together and retires together.
+  {
+    const cs = batchStart(nowMs);
+    const ce = cs + BATCH_DAYS * DAY;
+    for (const row of rows) {
+      const start = row["start_time"] ? Date.parse(String(row["start_time"])) : NaN;
+      if (!Number.isFinite(start)) continue;
+      const future = start > nowMs;
+      const wantStart = future ? ce : Math.min(start, cs);
+      const wantEnd = future ? ce + BATCH_DAYS * DAY : ce;
+      const end = row["end_time"] ? Date.parse(String(row["end_time"])) : NaN;
+      if (start === wantStart && end === wantEnd) continue;
+      const { data } = await sdb()
+        .from("master_events")
+        .update({
+          start_time: new Date(wantStart).toISOString(),
+          end_time: new Date(wantEnd).toISOString(),
+          updated_at: nowIso,
+        })
+        .eq("id", row["id"])
+        .select()
+        .maybeSingle();
+      if (data) Object.assign(row, data as Row);
+    }
+  }
+
+
   // 2. Keep LIVE_TARGET different events playable at the same time. Each one is
   //    invented separately (its own theme, length, pace and rewards), so the
   //    stream is unlimited instead of a single frozen event.
